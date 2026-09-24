@@ -1,9 +1,16 @@
 {
   "name": "agent-therapist",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Builds or tidies up your Claude Code setup: CLAUDE.md files, rules, hooks, permissions.",
-  "author": { "name": "Simon" },
+  "author": {
+    "name": "Simon"
+  },
   "license": "MIT",
-  "keywords": ["claude-md", "setup", "hooks", "permissions"],
+  "keywords": [
+    "claude-md",
+    "setup",
+    "hooks",
+    "permissions"
+  ],
   "skills": "./skills/"
 }
