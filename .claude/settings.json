@@ -1,0 +1,46 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run pytest:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(ls:*)",
+      "Bash(which:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(rm -rf:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {"type": "command", "command": "[ ! -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-files.py\" ] || python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-files.py\""}
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {"type": "command", "command": "[ ! -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/no-commit-on-main.py\" ] || python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/no-commit-on-main.py\""}
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {"type": "command", "command": "[ ! -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/done-check.py\" ] || python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/done-check.py\"", "timeout": 300}
+        ]
+      }
+    ]
+  }
+}
