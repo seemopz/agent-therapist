@@ -249,3 +249,10 @@ def test_every_question_has_a_recommendation():
     assert "Where?**\n(Global / Project / Both" not in skill
     assert "apply all (Recommended)" in skill
     assert "mark every recommended option" in skill
+
+
+def test_skill_offers_update_and_stamps_after_saving():
+    text = SKILL_MD.read_text()
+    assert "scripts/stamp.py diff" in text
+    assert "scripts/stamp.py save" in text
+    assert "**Update:**" in text
