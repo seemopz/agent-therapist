@@ -64,15 +64,23 @@ Sections in XML tags, each optional:
 
 ## Rules
 
-- Every constraint carries a reason, so Claude can generalise it.
-- Phrase instructions positively ("write in prose") rather than as prohibitions.
-- A role line ("You are …") only when it sets a real perspective (e.g. security reviewer).
-  Seniority claims like "15 years of experience" are not used.
-- No filler, no all-caps threats, no flattery.
-- Large tasks get an instruction to plan first, then implement.
+Checked against Anthropic's prompt-engineering docs on 2026-09-25 (sources at the bottom of
+`prompt-rules.md`):
 
-Before building, these rules are checked against Anthropic's current prompt-engineering docs and
-extended where the docs say more. Sources are listed at the bottom of `prompt-rules.md`.
+- Clear and direct: write for a brilliant new colleague with no context. Imperative verbs
+  ("Change …"), since "Can you suggest …" gets suggestions instead of changes.
+- Every constraint carries a reason, so Claude can generalise it.
+- Phrase instructions positively ("write in flowing prose") rather than as prohibitions.
+- A role line ("You are …") only when it sets a real perspective or tone (e.g. security reviewer).
+  Seniority claims like "15 years of experience" are not used; the docs give no evidence for them.
+- Calm wording: no all-caps, no "CRITICAL/MUST"; newer models overreact to it.
+- No request to explain reasoning inside the answer; it can trigger a refusal. "Think it through
+  carefully" is enough when depth matters.
+- Examples: 3–5, varied, in `<example>` tags – only when style or format matters.
+- Long pasted material goes first, the task last.
+- The prompt's own style matches the wanted output (less markdown in, less markdown out).
+- Large tasks: plan first, then implement; say where to stop ("report and stop" vs. "implement").
+- No filler, no flattery, no over-specification: a short instruction beats a list of behaviours.
 
 ### Checklist (applied while writing, not as a separate pass)
 
@@ -83,7 +91,9 @@ extended where the docs say more. Sources are listed at the bottom of `prompt-ru
 
 ## Testing
 
-No code, so no pytest. Four scenarios in `tests/scenarios.md`:
+`tests/test_preprompt_files.py` checks the skill files (frontmatter, skeleton tags, key rules,
+English only), like `tests/test_sleepless_files.py` does for sleepless. Behaviour is checked by
+four manual scenarios in `tests/scenarios.md`:
 
 1. Clear idea → no questions, prompt output directly.
 2. Vague idea ("do something with photos") → at least 3 questions.
