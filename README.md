@@ -60,7 +60,12 @@ Requirements: Claude Code, `python3` (3.9 or newer, standard library only), `git
 ```bash
 git clone <repo-url> ~/repos/agent-therapist
 ln -s ~/repos/agent-therapist/skills/agent-therapist ~/.claude/skills/agent-therapist
+ln -s ~/repos/agent-therapist/skills/sleepless ~/.claude/skills/sleepless
 ```
+
+`skills/sleepless` has its own `.claude-plugin/plugin.json`, so the symlink loads it as plugin
+`sleepless@skills-dir` including its hooks. Use either the symlinks or the plugin install below,
+not both – otherwise every sleepless hook runs twice.
 
 Or load it as a plugin for one session:
 
@@ -78,6 +83,26 @@ In any Claude Code session:
 
 or in plain words, e.g. "clean up my CLAUDE.md setup". The skill asks two questions:
 **What?** (Optimize / Build new / Undo) and **Where?** (Global / Project / Both).
+
+## sleepless
+
+A second skill: a long autonomous work shift in any git repo. Claude works through a task list and
+then quality work on branch `sleepless/<date>`, commits and pushes after every step, and ends with
+`SLEEPLESS-REPORT.md` and a pull request (never a merge). Start it with `/sleepless` or "work
+through the night".
+
+Hooks do the parts that must not depend on Claude:
+
+| Hook | Does |
+|---|---|
+| Stop | keeps the turn going; pauses after 6 stop attempts without a repo change |
+| UserPromptSubmit | `stop` ends the shift, `weiter` resumes a paused one |
+| SessionStart | wakes a restarted session and continues the shift |
+| StopFailure | retries 15 minutes after an API error |
+| PreToolUse | blocks force push, push to main/master, deleting outside the repo, sending messages |
+
+Without an active shift the hooks do nothing. State lives in `.claude/sleepless/` (git-excluded).
+Keeping the machine awake is up to you.
 
 ## Layout
 
@@ -97,6 +122,14 @@ skills/agent-therapist/
     tokens.py                    token cost per file, before/after
     scan.py                      length, IMPORTANT, secrets, diary entries, AGENTS.md
     backup.py                    backup and undo
+skills/sleepless/
+  .claude-plugin/plugin.json     makes the skill folder a plugin (hooks load via symlink)
+  SKILL.md                       the shift flow
+  hooks/hooks.json, hook.py      hook registration and entry point
+  hooks/guard.py                 commands blocked during a shift
+  scripts/shift.py               shift state and CLI
+  templates/SLEEPLESS-REPORT.md  report skeleton
+hooks/hooks.json                 sleepless hooks for the plugin install
 tests/                           pytest + scenario tests
 docs/                            design, plan, German version of the guide
 ```
