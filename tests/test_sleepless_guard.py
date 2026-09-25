@@ -25,7 +25,7 @@ DENY = [
     ("rm -rf /tmp/x", "outside the repo"),
     ("rm -rf ~/x", "outside the repo"),
     ("rm -rf ../other", "outside the repo"),
-    ("rm -rf .", "outside the repo"),
+    ("rm -rf .", "repo root"),
     ("FOO=1 sudo rm /etc/hosts", "outside the repo"),
     ("echo hi; rm -r /var/x", "outside the repo"),
     ("find / -name x -delete", "outside the repo"),
@@ -42,6 +42,8 @@ DENY = [
     ("gh --repo owner/repo issue create --title t", "sending messages"),
     ("mail -s hi someone@example.com", "sending messages"),
     ("curl -X POST https://hooks.slack.com/services/T/B/X -d x", "sending messages"),
+    ("gh pr merge 3 --squash", "merging"),
+    ("gh -R owner/repo pr merge 3", "merging"),
 ]
 
 ALLOW = [
@@ -52,10 +54,13 @@ ALLOW = [
     "rm -f 'a file.txt'",
     "rm x > /tmp/log 2>&1",
     "rm x 2>&1",
+    "rm -f x &>/dev/null",
+    "rm -f x &>>/dev/null",
     "find . -name '*.pyc' -delete",
     "gh pr create --base main --body-file SLEEPLESS-REPORT.md",
     "gh pr edit 3 --body-file SLEEPLESS-REPORT.md",
     "gh -R owner/repo pr create --base main",
+    "gh pr view 3",
     'git commit -m "fix: stop; push to main later"',
     "python3 -m pytest",
     "curl https://example.com",
@@ -96,12 +101,18 @@ def test_rm_relative_to_cwd_in_subdir(git_repo):
     ("mcp__x__postprocess", False),
     ("mcp__x__commentary_stats", False),
     ("mcp__x__repost_metrics", False),
+    ("mcp__github__merge_pull_request", True),
     ("PushNotification", False),
     ("Read", False),
 ])
 def test_mcp_and_other_tools(git_repo, tool, denied):
     result = guard.check(tool, {}, str(git_repo), str(git_repo))
     assert (result is not None) == denied
+
+
+def test_mcp_merge_denied_with_merge_message(git_repo):
+    result = guard.check("mcp__github__merge_pull_request", {}, str(git_repo), str(git_repo))
+    assert result is not None and "merging" in result
 
 
 def test_segments_split_on_operators_but_not_inside_quotes():

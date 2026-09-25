@@ -15,8 +15,10 @@ SEPARATORS = {";", ";;", "&&", "||", "|", "|&", "&", "(", ")"}
 PREFIXES = {"sudo", "command", "env", "exec", "nohup", "time", "{", "!"}
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 MCP_DANGER_WORDS = {"send", "post", "reply", "message", "messages", "comment", "comments", "draft", "drafts", "email", "emails", "mail"}
+MCP_MERGE_WORDS = {"merge", "merges", "merging", "merged"}
 WORD_SPLIT = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+")
 GH_MESSAGES = {("pr", "comment"), ("pr", "review"), ("issue", "comment"), ("issue", "create")}
+GH_MERGE = {("pr", "merge")}
 GH_GLOBAL_OPTS_WITH_VALUE = {"-R", "--repo"}
 MAILERS = {"mail", "mailx", "sendmail", "mutt"}
 WEBHOOKS = ("hooks.slack.com", "discord.com/api/webhooks")
@@ -31,6 +33,9 @@ OUTSIDE = "deleting outside the repo (%s) is blocked during a sleepless shift"
 UNRESOLVED = "cannot resolve the path %r to check that it is inside the repo; use a literal path"
 MESSAGE = ("sending messages is blocked during a sleepless shift; "
            "note it in SLEEPLESS-REPORT.md instead")
+MERGE = ("merging is blocked during a sleepless shift; "
+         "the shift ends with a pull request, never a merge")
+REPO_ROOT = "deleting the repo root is blocked during a sleepless shift"
 
 
 def segments(command: str) -> List[List[str]]:
@@ -136,7 +141,7 @@ def _check_delete(words: List[str], cwd: str, root: str) -> Optional[str]:
         for i, w in enumerate(words[1:], 1):
             if skip:
                 skip = False
-            elif w.startswith((">", "<")):
+            elif w.startswith((">", "<", "&>")):
                 skip = True
             elif not opts_done and w == "--":
                 opts_done = True
@@ -155,10 +160,13 @@ def _check_delete(words: List[str], cwd: str, root: str) -> Optional[str]:
         paths = paths or ["."]
     else:
         return None
+    root_real = os.path.realpath(root)
     for p in paths:
         target = _resolve(cwd, p)
         if target is None:
             return UNRESOLVED % p
+        if target == root_real and not allow_root:
+            return REPO_ROOT
         if not _inside(target, root, allow_root):
             return OUTSIDE % p
     return None
@@ -178,8 +186,12 @@ def _check_message(words: List[str]) -> Optional[str]:
                 i += 1
             else:
                 break
-        if i + 1 < len(words) and (words[i], words[i + 1]) in GH_MESSAGES:
-            return MESSAGE
+        if i + 1 < len(words):
+            sub = (words[i], words[i + 1])
+            if sub in GH_MESSAGES:
+                return MESSAGE
+            if sub in GH_MERGE:
+                return MERGE
     if name in MAILERS:
         return MESSAGE
     if name in ("curl", "wget") and any(h in w for w in words for h in WEBHOOKS):
@@ -211,4 +223,6 @@ def check(tool_name: str, tool_input: dict, cwd: str, root: str) -> Optional[str
         words = [m.group(0).lower() for m in WORD_SPLIT.finditer(last_segment)]
         if any(w in MCP_DANGER_WORDS for w in words):
             return MESSAGE
+        if any(w in MCP_MERGE_WORDS for w in words):
+            return MERGE
     return None
