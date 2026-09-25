@@ -95,7 +95,7 @@ Hooks do the parts that must not depend on Claude:
 
 | Hook | Does |
 |---|---|
-| Stop | keeps the turn going; pauses after 6 stop attempts without a repo change |
+| Stop | keeps the turn going; pauses when more than 6 stop attempts in a row bring no repo change (`SLEEPLESS_IDLE_LIMIT`) |
 | UserPromptSubmit | `stop` ends the shift, `weiter` resumes a paused one |
 | SessionStart | wakes a restarted session and continues the shift |
 | StopFailure | retries 15 minutes after an API error |
