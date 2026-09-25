@@ -34,25 +34,6 @@ claude --plugin-dir ~/repos/agent-therapist
 
 Use either the symlinks or the plugin, not both – otherwise every sleepless hook runs twice.
 
-## preprompt
-
-Turns a rough idea into one finished prompt for Claude.
-
-### Use
-
-```
-/preprompt a CLI that sorts photos into folders by date
-```
-
-Claude asks only what the idea is missing (0–8 click-to-choose questions, each with a
-recommended default), then shows the prompt as one code block, ready to copy. After that it asks
-"Run it now?": **Yes** runs it in the same session, **Adjust** rebuilds it with your change,
-**No** stops.
-
-The rules the prompt follows – structure in XML tags, a reason for every constraint, no
-all-caps, a role line only when it sets a real perspective – are in
-`skills/preprompt/references/prompt-rules.md`, with links to Anthropic's docs they come from.
-
 ## agent-therapist
 
 Looks first, asks only what it can't detect, shows a preview of every change, and backs up before
@@ -161,6 +142,25 @@ Without an active shift the hooks do nothing. State lives in `.claude/sleepless/
   (heartbeat younger than 10 minutes). Use a separate worktree for parallel work.
 - Allowed without asking during a shift: pushing the shift branch, opening the pull request,
   deploys as documented in the repo.
+
+## preprompt
+
+Turns a rough idea into one finished prompt for Claude.
+
+### Use
+
+```
+/preprompt a CLI that sorts photos into folders by date
+```
+
+Claude asks only what the idea is missing (0–8 click-to-choose questions, each with a
+recommended default), then shows the prompt as one code block, ready to copy. After that it asks
+"Run it now?": **Yes** runs it in the same session, **Adjust** rebuilds it with your change,
+**No** stops.
+
+The rules the prompt follows – structure in XML tags, a reason for every constraint, no
+all-caps, a role line only when it sets a real perspective – are in
+`skills/preprompt/references/prompt-rules.md`, with links to Anthropic's docs they come from.
 
 ## Layout
 
