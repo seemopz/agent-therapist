@@ -14,8 +14,10 @@ PROTECTED = ("main", "master")
 SEPARATORS = {";", ";;", "&&", "||", "|", "|&", "&", "(", ")"}
 PREFIXES = {"sudo", "command", "env", "exec", "nohup", "time", "{", "!"}
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
-MCP_WORDS = re.compile(r"send|post|reply|message|comment|draft|email", re.I)
+MCP_DANGER_WORDS = {"send", "post", "reply", "message", "messages", "comment", "comments", "draft", "drafts", "email", "emails", "mail"}
+WORD_SPLIT = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+")
 GH_MESSAGES = {("pr", "comment"), ("pr", "review"), ("issue", "comment"), ("issue", "create")}
+GH_GLOBAL_OPTS_WITH_VALUE = {"-R", "--repo"}
 MAILERS = {"mail", "mailx", "sendmail", "mutt"}
 WEBHOOKS = ("hooks.slack.com", "discord.com/api/webhooks")
 PUSH_OPTS_WITH_VALUE = {"-o", "--push-option", "--repo", "--receive-pack", "--exec"}
@@ -131,7 +133,7 @@ def _check_delete(words: List[str], cwd: str, root: str) -> Optional[str]:
     paths = []  # type: List[str]
     if name in ("rm", "rmdir", "unlink"):
         allow_root, opts_done, skip = False, False, False
-        for w in words[1:]:
+        for i, w in enumerate(words[1:], 1):
             if skip:
                 skip = False
             elif w.startswith((">", "<")):
@@ -140,7 +142,9 @@ def _check_delete(words: List[str], cwd: str, root: str) -> Optional[str]:
                 opts_done = True
             elif not opts_done and w.startswith("-"):
                 continue
-            elif not w.isdigit():
+            elif w.isdigit() and i + 1 < len(words) and words[i + 1].startswith((">" , "<")):
+                continue
+            else:
                 paths.append(w)
     elif name == "find" and "-delete" in words:
         allow_root = True
@@ -162,8 +166,20 @@ def _check_delete(words: List[str], cwd: str, root: str) -> Optional[str]:
 
 def _check_message(words: List[str]) -> Optional[str]:
     name = os.path.basename(words[0])
-    if name == "gh" and len(words) >= 3 and (words[1], words[2]) in GH_MESSAGES:
-        return MESSAGE
+    if name == "gh":
+        i = 1
+        while i < len(words):
+            w = words[i]
+            if w in GH_GLOBAL_OPTS_WITH_VALUE and i + 1 < len(words):
+                i += 2
+            elif w.startswith("--repo="):
+                i += 1
+            elif w.startswith("-") and not w.startswith("--"):
+                i += 1
+            else:
+                break
+        if i + 1 < len(words) and (words[i], words[i + 1]) in GH_MESSAGES:
+            return MESSAGE
     if name in MAILERS:
         return MESSAGE
     if name in ("curl", "wget") and any(h in w for w in words for h in WEBHOOKS):
@@ -190,6 +206,9 @@ def check(tool_name: str, tool_input: dict, cwd: str, root: str) -> Optional[str
     """A deny reason for this tool call, or None to let it through."""
     if tool_name == "Bash":
         return check_bash(str(tool_input.get("command", "")), str(cwd), str(root))
-    if tool_name.startswith("mcp__") and MCP_WORDS.search(tool_name.rsplit("__", 1)[-1]):
-        return MESSAGE
+    if tool_name.startswith("mcp__"):
+        last_segment = tool_name.rsplit("__", 1)[-1]
+        words = [m.group(0).lower() for m in WORD_SPLIT.finditer(last_segment)]
+        if any(w in MCP_DANGER_WORDS for w in words):
+            return MESSAGE
     return None
