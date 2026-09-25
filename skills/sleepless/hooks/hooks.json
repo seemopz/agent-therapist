@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "Stop": [
+      {"hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.py\" stop", "timeout": 30}]}
+    ],
+    "UserPromptSubmit": [
+      {"hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.py\" prompt", "timeout": 10}]}
+    ],
+    "SessionStart": [
+      {"matcher": "startup|resume|compact", "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.py\" session-start", "asyncRewake": true, "timeout": 30}]}
+    ],
+    "StopFailure": [
+      {"hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.py\" stop-failure", "asyncRewake": true, "timeout": 1200}]}
+    ],
+    "PreToolUse": [
+      {"matcher": "Bash|mcp__.*", "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.py\" pre-tool-use", "timeout": 10}]}
+    ]
+  }
+}

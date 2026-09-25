@@ -1,0 +1,8 @@
+{
+  "name": "sleepless",
+  "description": "Long autonomous work shifts in any git repo: keeps working until you say stop, resumes after restarts, blocks dangerous commands.",
+  "author": {
+    "name": "Simon"
+  },
+  "license": "MIT"
+}
