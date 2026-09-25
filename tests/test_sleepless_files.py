@@ -25,6 +25,7 @@ def test_skill_hooks_cover_every_event_and_call_hook_py():
     assert hooks["SessionStart"][0]["hooks"][0]["asyncRewake"] is True
     assert hooks["StopFailure"][0]["hooks"][0]["asyncRewake"] is True
     assert hooks["StopFailure"][0]["hooks"][0]["timeout"] >= 1000
+    assert hooks["StopFailure"][0]["matcher"] == "rate_limit|overloaded|server_error"
     assert hooks["PreToolUse"][0]["matcher"] == "Bash|mcp__.*"
 
 

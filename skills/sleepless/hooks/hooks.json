@@ -10,7 +10,7 @@
       {"matcher": "startup|resume|compact", "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.py\" session-start", "asyncRewake": true, "timeout": 30}]}
     ],
     "StopFailure": [
-      {"hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.py\" stop-failure", "asyncRewake": true, "timeout": 1200}]}
+      {"matcher": "rate_limit|overloaded|server_error", "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.py\" stop-failure", "asyncRewake": true, "timeout": 1200}]}
     ],
     "PreToolUse": [
       {"matcher": "Bash|mcp__.*", "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.py\" pre-tool-use", "timeout": 10}]}
