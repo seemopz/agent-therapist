@@ -9,6 +9,7 @@ Claude Code skill that builds or tidies up a user's Claude Code setup: CLAUDE.md
 - `~/.claude/skills/agent-therapist` is a symlink to `skills/agent-therapist/` – every edit is live in real sessions.
 - Scripts and hooks run with system `python3` 3.9: standard library only, no syntax newer than 3.9.
 - Tests and examples use generic placeholders, never real private repo names.
+- Changing a check in `references/checklist.md` → raise its `<!-- check: id/rev -->` revision; a new check gets a new id.
 
 ## More
 - New TODOs → `TODO.md`
