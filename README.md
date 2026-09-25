@@ -1,11 +1,12 @@
 # agent-therapist
 
-A Claude Code plugin with two skills:
+A Claude Code plugin with three skills:
 
 | Skill | What it does |
 |---|---|
 | [**agent-therapist**](#agent-therapist-1) | builds or tidies up your Claude Code setup: `CLAUDE.md` files, `~/.claude/rules/`, hooks and permissions |
 | [**sleepless**](#sleepless) | runs a long autonomous work shift in any git repo and ends it with a pull request |
+| [**preprompt**](#preprompt) | turns a rough idea into a finished prompt for Claude, asking only what is missing |
 
 Made for people who want Claude Code to work well without knowing every detail of it.
 
@@ -19,6 +20,7 @@ and required with write access for sleepless (it opens the shift's pull request)
 git clone <repo-url> ~/repos/agent-therapist
 ln -s ~/repos/agent-therapist/skills/agent-therapist ~/.claude/skills/agent-therapist
 ln -s ~/repos/agent-therapist/skills/sleepless ~/.claude/skills/sleepless
+ln -s ~/repos/agent-therapist/skills/preprompt ~/.claude/skills/preprompt
 ```
 
 Symlink only the skills you want. `skills/sleepless` has its own `.claude-plugin/plugin.json`, so
@@ -143,6 +145,25 @@ Without an active shift the hooks do nothing. State lives in `.claude/sleepless/
 - Allowed without asking during a shift: pushing the shift branch, opening the pull request,
   deploys as documented in the repo.
 
+## preprompt
+
+Turns a rough idea into one finished prompt for Claude.
+
+### Use
+
+```
+/preprompt a CLI that sorts photos into folders by date
+```
+
+Claude asks only what the idea is missing (0–8 click-to-choose questions, each with a
+recommended default), then shows the prompt as one code block, ready to copy. After that it asks
+"Run it now?": **Yes** runs it in the same session, **Adjust** rebuilds it with your change,
+**No** stops.
+
+The rules the prompt follows – structure in XML tags, a reason for every constraint, no
+all-caps, a role line only when it sets a real perspective – are in
+`skills/preprompt/references/prompt-rules.md`, with links to Anthropic's docs they come from.
+
 ## Layout
 
 ```
@@ -170,6 +191,9 @@ skills/sleepless/
   hooks/guard.py                 commands blocked during a shift
   scripts/shift.py               shift state and CLI
   templates/SLEEPLESS-REPORT.md  report skeleton
+skills/preprompt/
+  SKILL.md                       the flow (steps 1–6)
+  references/prompt-rules.md     prompt skeleton, rules, checklist, sources
 tests/                           pytest + scenario tests
 docs/                            designs, plans, German version of the guide
 ```
@@ -201,9 +225,10 @@ Never edit these versions by hand.
 
 1. ✅ agent-therapist: Build new + Optimize + Undo
 2. ✅ sleepless: autonomous work shifts with hooks
-3. agent-therapist: learn from past sessions – find corrections you keep typing and turn them into rules
-4. agent-therapist: GitHub steps – protect `main`, set up release-please (only with admin rights, each step confirmed)
-5. sleepless: verify the StopFailure retry in a real rate-limited shift
+3. ✅ preprompt: turn a rough idea into a finished prompt
+4. agent-therapist: learn from past sessions – find corrections you keep typing and turn them into rules
+5. agent-therapist: GitHub steps – protect `main`, set up release-please (only with admin rights, each step confirmed)
+6. sleepless: verify the StopFailure retry in a real rate-limited shift
 
 ## Background
 

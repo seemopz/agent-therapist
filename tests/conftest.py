@@ -9,6 +9,7 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 SKILL_DIR = ROOT / "skills" / "agent-therapist"
 SLEEPLESS_DIR = ROOT / "skills" / "sleepless"
+PREPROMPT_DIR = ROOT / "skills" / "preprompt"
 sys.path.insert(0, str(SKILL_DIR / "scripts"))
 sys.path.insert(0, str(SLEEPLESS_DIR / "scripts"))
 sys.path.insert(0, str(SLEEPLESS_DIR / "hooks"))
