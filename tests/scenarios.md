@@ -92,7 +92,8 @@ Erwartet:
 ## 6. preprompt
 
 Interactive only (`AskUserQuestion` needs a user). In any scratch repo, start
-`claude --plugin-dir ~/repos/agent-therapist`, then:
+`claude --plugin-dir <path to the checkout that contains skills/preprompt>` (before merge that is
+the worktree `.claude/worktrees/preprompt`), then:
 
 1. `/preprompt Write a Python function that returns the n-th Fibonacci number iteratively, with type hints and a pytest test. Output only the code.`
    - [ ] no questions, one code block with the prompt, then "Run it now?"
@@ -102,3 +103,7 @@ Interactive only (`AskUserQuestion` needs a user). In any scratch repo, start
    - [ ] asks what it is about, nothing else
 4. After any prompt is shown, choose **Adjust** and ask for "answer in German"
    - [ ] prompt rebuilt with that change, shown again, "Run it now?" again
+5. `Write me a prompt for a script that renames photos by the date they were taken`
+   - [ ] preprompt triggers without `/preprompt` and uses this request as the idea (does not ask "What is it about?")
+6. `Fix the typo in the prompt string in app.py`
+   - [ ] preprompt does not trigger

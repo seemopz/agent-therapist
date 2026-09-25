@@ -39,12 +39,13 @@ def test_skill_frontmatter():
     text = SKILL.read_text()
     assert text.startswith("---\nname: preprompt\ndescription: Use when ")
     assert "\nargument-hint: <idea>\n" in text.split("\n---\n", 1)[0] + "\n"
+    assert "not for ordinary tasks" in text
 
 
 def test_skill_flow_key_steps():
     text = SKILL.read_text()
     for needle in ("references/prompt-rules.md", "AskUserQuestion", "at most 8",
-                   "one code block", "Run it now?", "Yes", "Adjust", "No",
+                   "one code block", "Run it now?", "**Yes**", "**Adjust**", "**No**",
                    "What is it about?"):
         assert needle in text, needle
 

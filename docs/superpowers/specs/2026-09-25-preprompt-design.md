@@ -38,8 +38,9 @@ since it lives outside the repo).
 
 1. **No idea given** → ask "What is it about?" and continue with the answer.
 2. **Check the idea** against the skeleton: goal, context, constraints, output format, examples.
-3. **Ask** – only if something important is missing: 1–8 questions in one batch via
-   `AskUserQuestion`, each with a recommended default as the first option. Clear idea → skip.
+3. **Ask** – only if something important is missing: 1–8 questions via `AskUserQuestion` (max 4
+   per call, so at most two calls), each with a recommended default as the first option. Clear
+   idea → skip.
 4. **Build** the prompt from the skeleton, in the language of the idea. Drop sections that would
    be empty.
 5. **Output** exactly one code block containing the prompt, with no prose around it.
@@ -58,7 +59,7 @@ Sections in XML tags, each optional:
 | `<task>` | The goal in 1–3 direct sentences ("Build …", not "Could you …") |
 | `<requirements>` | Concrete requirements as a list |
 | `<constraints>` | What must not happen, each with its reason |
-| `<examples>` | 1–3 examples, only when style or format matters |
+| `<examples>` | 3–5 examples, only when style or format matters |
 | `<output_format>` | What the result looks like |
 | `<success_criteria>` | How to tell it is done and correct |
 
@@ -74,8 +75,8 @@ Checked against Anthropic's prompt-engineering docs on 2026-09-25 (sources at th
 - A role line ("You are …") only when it sets a real perspective or tone (e.g. security reviewer).
   Seniority claims like "15 years of experience" are not used; the docs give no evidence for them.
 - Calm wording: no all-caps, no "CRITICAL/MUST"; newer models overreact to it.
-- No request to explain reasoning inside the answer; it can trigger a refusal. "Think it through
-  carefully" is enough when depth matters.
+- No request to explain reasoning inside the answer; it can trigger a refusal. Leave thinking
+  depth to the model's effort setting instead.
 - Examples: 3–5, varied, in `<example>` tags – only when style or format matters.
 - Long pasted material goes first, the task last.
 - The prompt's own style matches the wanted output (less markdown in, less markdown out).

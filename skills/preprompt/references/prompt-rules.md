@@ -22,7 +22,7 @@ The goal in 1–3 direct sentences, starting with a verb ("Build …", "Rewrite 
 </requirements>
 
 <constraints>
-- What must not happen, each with its reason ("No external packages – it runs on a server without internet").
+- Limits, phrased positively where possible, each with its reason ("Use only the standard library – it runs on a server without internet").
 </constraints>
 
 <examples>
@@ -55,8 +55,8 @@ Write the prompt in the language of the user's idea. Tag names stay in English.
    the docs give no evidence that they help.
 5. **Calm wording.** No all-caps, no "CRITICAL" or "MUST". Newer models follow instructions
    closely and overreact to emphasis.
-6. **Do not ask Claude to explain its reasoning in the answer.** It can trigger a refusal. When
-   depth matters, "Think it through carefully before answering" is enough.
+6. **Do not ask Claude to explain its reasoning in the answer.** It can trigger a refusal. Leave
+   thinking depth to the model's effort setting instead of adding "think carefully" lines.
 7. **Examples: 3–5, varied**, wrapped in `<example>` tags – only when style or format matters.
 8. **Long material first, task last.** Pasted documents or code go into `<context>`; the task
    comes after them.
@@ -85,3 +85,4 @@ Checked on 2026-09-25:
 - https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5
 - https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5
 - https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5
+- https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5
