@@ -44,6 +44,9 @@ The conversation stays in your language.
 
 ## Safety
 
+These rules apply to agent-therapist; sleepless commits and pushes on its own shift branch (see
+below).
+
 - Nothing is written without a preview and your OK.
 - Backups go to `~/.claude/backups/agent-therapist/<date>/`; "Undo last change" restores them.
 - Lines may be deleted (with a reason); files are never deleted, only suggested.
@@ -55,7 +58,8 @@ The conversation stays in your language.
 ## Install
 
 Requirements: Claude Code, `python3` (3.9 or newer, standard library only), `git`. `gh` is optional
-(used read-only to detect branch protection and pull requests).
+(used read-only to detect branch protection and pull requests). The sleepless skill needs `gh` with
+write access to open its pull requests.
 
 ```bash
 git clone <repo-url> ~/repos/agent-therapist
@@ -95,14 +99,16 @@ Hooks do the parts that must not depend on Claude:
 
 | Hook | Does |
 |---|---|
-| Stop | keeps the turn going; pauses when more than 6 stop attempts in a row bring no repo change (`SLEEPLESS_IDLE_LIMIT`) |
-| UserPromptSubmit | `stop` ends the shift, `weiter` resumes a paused one |
+| Stop | keeps the turn going; pauses when more than 6 stop attempts in a row bring no repo change (`SLEEPLESS_IDLE_LIMIT`, clamped to 1-6) |
+| UserPromptSubmit | `stop` ends the shift, `weiter` or `resume shift` resumes a paused one |
 | SessionStart | wakes a restarted session and continues the shift |
-| StopFailure | retries 15 minutes after an API error |
-| PreToolUse | blocks force push, push to main/master, deleting outside the repo, sending messages |
+| StopFailure | tries to wake the shift 15 minutes after a rate limit, overload or server error (best effort: Claude Code documents StopFailure as notification-only; not verified in a real session) |
+| PreToolUse | blocks force push, push to main/master, deleting remote branches, merging, deleting outside the repo, sending messages |
 
 Without an active shift the hooks do nothing. State lives in `.claude/sleepless/` (git-excluded).
-Keeping the machine awake is up to you.
+Keeping the machine awake is up to you. A second session in the same checkout is ignored by the
+hooks while the shift session is alive (heartbeat younger than 10 minutes); use a separate worktree
+for parallel work.
 
 ## Layout
 

@@ -73,9 +73,20 @@ shift; compaction is expected and the report carries the state.
 
 ## Blocked by the hooks
 
-Force push, push to main/master, deleting remote branches, deleting outside the repo, sending
-messages (PR/issue comments, new issues, mail, chat webhooks, MCP send tools). A denied command is
-not an error: note it if it mattered and do something else. Never work around the guard.
+Force push, push to main/master, deleting remote branches, merging, deleting outside the repo,
+sending messages (PR/issue comments, new issues, mail, chat webhooks, MCP send tools). A denied
+command is not an error: note it if it mattered and do something else. Never work around the guard.
+
+## Stay inside the repo
+
+- Create files, repos and remotes only inside the repo (scratch files may go to the system temp dir).
+- No global installs, no changes to `~/.claude` or other global configuration, no new GitHub repos.
+- Anything the user's standing rules say to ask about first goes on the question list instead of
+  being done.
+- "Propose tasks" means deriving work from the existing code. Never build a new project; an empty
+  repo without code or tests means: run `$SHIFT end`.
+- While a shift runs, other sessions in the same checkout are left alone by the hooks; tell the
+  user to use a separate worktree for parallel work.
 
 ## Push notifications
 
@@ -86,8 +97,8 @@ data loss). The user is asleep.
 ## Pause
 
 When the Stop hook says the shift pauses (no repo change across several stop attempts): push,
-`PushNotification` with the reason, end the turn. The shift stays active; the user resumes it with
-"weiter".
+`PushNotification` with the reason, end the turn. The shift stays open (paused); the user resumes
+it with "weiter" or "resume shift".
 
 ## End
 
@@ -125,3 +136,5 @@ note the restart time in the report, continue with the next item.
 - Waiting on a background build instead of starting the next independent item.
 - `sleep` loops to pass time: the idle guard pauses the shift; real work does not.
 - Committing `.claude/sleepless/` – it is excluded via `.git/info/exclude`; never force-add it.
+- Leaving long-lived background processes (dev servers, watchers) running: while they run, the Stop
+  hook lets the turn end and nothing wakes the shift.
