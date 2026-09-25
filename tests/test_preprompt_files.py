@@ -30,3 +30,26 @@ def test_rules_cover_key_points_from_docs():
 
 def test_rules_are_english_only():
     assert not re.search(r"[äöüÄÖÜß]", RULES.read_text())
+
+
+SKILL = PREPROMPT_DIR / "SKILL.md"
+
+
+def test_skill_frontmatter():
+    text = SKILL.read_text()
+    assert text.startswith("---\nname: preprompt\ndescription: Use when ")
+    assert "\nargument-hint: <idea>\n" in text.split("\n---\n", 1)[0] + "\n"
+
+
+def test_skill_flow_key_steps():
+    text = SKILL.read_text()
+    for needle in ("references/prompt-rules.md", "AskUserQuestion", "at most 8",
+                   "one code block", "Run it now?", "Yes", "Adjust", "No",
+                   "What is it about?"):
+        assert needle in text, needle
+
+
+def test_skill_is_english_only_and_short():
+    text = SKILL.read_text()
+    assert not re.search(r"[äöüÄÖÜß]", text)
+    assert len(text.splitlines()) <= 90
