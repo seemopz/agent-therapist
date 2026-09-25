@@ -183,17 +183,17 @@ def start(root, label: str, end_kind: str, at: Optional[str] = None, hours: Opti
         "status": "active",
         "idle": {"fingerprint": "", "streak": 0},
         "last_stop": None,
+        "session_id": None,
     }
     save(root, state)
     touch_heartbeat(root)
     report = Path(root) / REPORT
-    if not report.exists():
-        text = TEMPLATE.read_text()
-        for key, value in (("label", label), ("branch", branch), ("base", base),
-                           ("started", started.strftime("%Y-%m-%d %H:%M")),
-                           ("end", _end_text(end_kind, deadline))):
-            text = text.replace("{{%s}}" % key, value)
-        report.write_text(text)
+    text = TEMPLATE.read_text()
+    for key, value in (("label", label), ("branch", branch), ("base", base),
+                       ("started", started.strftime("%Y-%m-%d %H:%M")),
+                       ("end", _end_text(end_kind, deadline))):
+        text = text.replace("{{%s}}" % key, value)
+    report.write_text(text)
     return state
 
 

@@ -41,9 +41,20 @@ def test_start_creates_branch_state_exclude_and_report(git_repo):
     report = (git_repo / "SLEEPLESS-REPORT.md").read_text()
     assert "docs cleanup" in report and "sleepless/2026-09-25" in report
     assert "{{" not in report
+    assert state["session_id"] is None
     porcelain = subprocess.run(["git", "-C", str(git_repo), "status", "--porcelain"],
                                capture_output=True, text=True).stdout
     assert ".claude" not in porcelain
+
+
+def test_start_overwrites_existing_report(git_repo):
+    (git_repo / "SLEEPLESS-REPORT.md").write_text("old label\n")
+    subprocess.run(["git", "-C", str(git_repo), "add", "SLEEPLESS-REPORT.md"], check=True)
+    subprocess.run(["git", "-C", str(git_repo), "commit", "-qm", "old report"], check=True)
+    shift.start(git_repo, "new label", "stop", start_time=T0)
+    report = (git_repo / "SLEEPLESS-REPORT.md").read_text()
+    assert "new label" in report
+    assert "old label" not in report
 
 
 def test_start_refuses_second_shift(git_repo):

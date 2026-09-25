@@ -86,10 +86,16 @@ def test_stop_passes_when_not_active(shift_repo, status):
     assert out(run_hook(shift_repo, "stop")) is None
 
 
-def test_stop_passes_with_background_tasks(shift_repo):
-    r = run_hook(shift_repo, "stop", {"background_tasks": [{"id": "t1", "type": "shell"}]})
+def test_stop_passes_with_running_background_task(shift_repo):
+    r = run_hook(shift_repo, "stop", {"background_tasks": [{"id": "t1", "status": "running"}]})
     assert out(r) is None
     assert shift.load(shift_repo)["idle"]["streak"] == 0
+
+
+def test_stop_blocks_with_non_running_background_task(shift_repo):
+    r = run_hook(shift_repo, "stop", {"background_tasks": [{"id": "t1", "status": "done"}]})
+    o = out(r)
+    assert o["decision"] == "block"
 
 
 def test_stop_after_deadline_starts_wrap_up(shift_repo):
@@ -97,6 +103,35 @@ def test_stop_after_deadline_starts_wrap_up(shift_repo):
     o = out(run_hook(shift_repo, "stop"))
     assert o["decision"] == "block" and "gh pr create" in o["reason"]
     assert shift.load(shift_repo)["status"] == "ending"
+
+
+def test_pause_reason_reports_real_streak(shift_repo):
+    for _ in range(6):
+        run_hook(shift_repo, "stop")
+    o = out(run_hook(shift_repo, "stop"))
+    assert "across 7 stop attempts" in o["reason"]
+
+
+def test_idle_limit_invalid_value_falls_back_to_six(shift_repo):
+    for _ in range(6):
+        assert "next item" in out(run_hook(shift_repo, "stop", SLEEPLESS_IDLE_LIMIT="x"))["reason"]
+    o = out(run_hook(shift_repo, "stop", SLEEPLESS_IDLE_LIMIT="x"))
+    assert o["decision"] == "block" and "PushNotification" in o["reason"]
+
+
+def test_idle_limit_out_of_range_clamps_to_six(shift_repo):
+    for _ in range(6):
+        assert "next item" in out(run_hook(shift_repo, "stop", SLEEPLESS_IDLE_LIMIT="20"))["reason"]
+    o = out(run_hook(shift_repo, "stop", SLEEPLESS_IDLE_LIMIT="20"))
+    assert o["decision"] == "block" and "PushNotification" in o["reason"]
+
+
+def test_stop_handler_error_yields_system_message(shift_repo):
+    set_state(shift_repo, end={"kind": "time", "at": "garbage"})
+    r = run_hook(shift_repo, "stop")
+    assert r.returncode == 0
+    assert "hook error" in out(r)["systemMessage"]
+    assert "inactive until it is fixed" in out(r)["systemMessage"]
 
 
 def test_stop_idle_pauses_after_limit(shift_repo):
@@ -131,12 +166,22 @@ def test_prompt_other_text_changes_nothing_while_active(shift_repo, prompt):
     assert shift.load(shift_repo)["status"] == "active"
 
 
-def test_prompt_resume_from_pause(shift_repo):
+@pytest.mark.parametrize("prompt", ["weiter", "resume shift"])
+def test_prompt_resume_from_pause(shift_repo, prompt):
     set_state(shift_repo, status="paused", idle={"fingerprint": "abc", "streak": 7})
-    o = out(run_hook(shift_repo, "prompt", {"prompt": "weiter"}))
-    assert "resumed" in o["hookSpecificOutput"]["additionalContext"]
+    o = out(run_hook(shift_repo, "prompt", {"prompt": prompt, "session_id": "s1"}))
+    context = o["hookSpecificOutput"]["additionalContext"]
+    assert context.startswith("Sleepless shift resumed")
+    assert "resumed" in context
     state = shift.load(shift_repo)
     assert state["status"] == "active" and state["idle"]["streak"] == 0
+    assert state["session_id"] == "s1"
+
+
+def test_prompt_continue_no_longer_resumes(shift_repo):
+    set_state(shift_repo, status="paused")
+    assert out(run_hook(shift_repo, "prompt", {"prompt": "continue"})) is None
+    assert shift.load(shift_repo)["status"] == "paused"
 
 
 def test_prompt_stop_while_paused_starts_wrap_up(shift_repo):
@@ -189,9 +234,60 @@ def test_pre_tool_use_denies_and_touches_heartbeat(shift_repo):
     assert shift.heartbeat_age(shift_repo) < 60
 
 
+def test_pre_tool_use_deadline_passed_only(shift_repo):
+    set_state(shift_repo, end={"kind": "hours", "at": "2000-01-01T00:00:00+00:00"})
+    r = run_hook(shift_repo, "pre-tool-use", {"tool_name": "Bash", "tool_input": {"command": "git status"}})
+    hso = out(r)["hookSpecificOutput"]
+    assert hso["hookEventName"] == "PreToolUse"
+    assert "gh pr create" in hso["additionalContext"]
+    assert "permissionDecision" not in hso
+    assert shift.load(shift_repo)["status"] == "ending"
+
+
+def test_pre_tool_use_deadline_passed_and_denied(shift_repo):
+    set_state(shift_repo, end={"kind": "hours", "at": "2000-01-01T00:00:00+00:00"})
+    r = run_hook(shift_repo, "pre-tool-use",
+                 {"tool_name": "Bash", "tool_input": {"command": "git push origin main"}})
+    hso = out(r)["hookSpecificOutput"]
+    assert hso["hookEventName"] == "PreToolUse"
+    assert "gh pr create" in hso["additionalContext"]
+    assert hso["permissionDecision"] == "deny"
+    assert "main/master" in hso["permissionDecisionReason"]
+
+
 def test_pre_tool_use_allows_safe_command(shift_repo):
     r = run_hook(shift_repo, "pre-tool-use", {"tool_name": "Bash", "tool_input": {"command": "git status"}})
     assert out(r) is None
+
+
+def test_stop_claims_session_on_first_call(shift_repo):
+    r = run_hook(shift_repo, "stop", {"session_id": "s1"})
+    assert out(r)["decision"] == "block"
+    assert shift.load(shift_repo)["session_id"] == "s1"
+
+
+def test_foreign_session_with_fresh_heartbeat_is_ignored(shift_repo):
+    set_state(shift_repo, session_id="s1")
+    heartbeat = shift_repo / ".claude" / "sleepless" / "heartbeat"
+    before = heartbeat.stat().st_mtime
+
+    r = run_hook(shift_repo, "stop", {"session_id": "s2"})
+    assert (r.returncode, r.stdout, r.stderr) == (0, "", "")
+    assert shift.load(shift_repo)["session_id"] == "s1"
+    assert heartbeat.stat().st_mtime == before
+
+    r2 = run_hook(shift_repo, "pre-tool-use",
+                  {"session_id": "s2", "tool_name": "Bash", "tool_input": {"command": "git push origin main"}})
+    assert (r2.returncode, r2.stdout, r2.stderr) == (0, "", "")
+    assert heartbeat.stat().st_mtime == before
+
+
+def test_foreign_session_with_stale_heartbeat_takes_over(shift_repo):
+    set_state(shift_repo, session_id="s1")
+    age_heartbeat(shift_repo)
+    r = run_hook(shift_repo, "stop", {"session_id": "s2"})
+    assert out(r)["decision"] == "block"
+    assert shift.load(shift_repo)["session_id"] == "s2"
 
 
 def test_worktree_cwd_falls_back_to_project_dir(shift_repo, tmp_path):

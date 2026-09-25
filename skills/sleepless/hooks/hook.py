@@ -20,12 +20,20 @@ import guard  # noqa: E402
 import shift  # noqa: E402
 
 STOP_WORDS = {"stop", "stopp", "hör auf", "hoer auf"}
-RESUME_WORDS = {"weiter", "continue", "resume"}
+RESUME_WORDS = {"weiter", "resume shift"}
 FRESH_HEARTBEAT_SECONDS = 600
 
 
 def idle_limit() -> int:
-    return int(os.environ.get("SLEEPLESS_IDLE_LIMIT", "6"))
+    """1..6, the Stop hook cap (8 consecutive blocks without a tool call ends the turn anyway).
+
+    Falls back to 6 for a value that isn't a plain integer, and clamps any other value into range.
+    """
+    try:
+        n = int(os.environ.get("SLEEPLESS_IDLE_LIMIT", "6"))
+    except ValueError:
+        return 6
+    return max(1, min(6, n))
 
 
 def retry_seconds() -> float:
@@ -58,7 +66,7 @@ def continue_reason(state: dict) -> str:
 def pause_reason(state: dict) -> str:
     return ("Sleepless: no repo change across %d stop attempts - the shift pauses. Push `%s`, send a "
             "PushNotification that the shift is paused and why, then end the turn. The user resumes "
-            "it with \"weiter\"." % (idle_limit(), state["branch"]))
+            "it with \"weiter\"." % (state["idle"]["streak"], state["branch"]))
 
 
 def wake_message(state: dict) -> str:
@@ -85,10 +93,36 @@ def find_shift(data: dict):
     return None
 
 
+def check_session(root, state: dict, data: dict) -> bool:
+    """True if this hook call owns the shift.
+
+    A missing session_id in the input is treated as owner. A null state session_id is claimed by
+    the caller. A different session_id is foreign while the owner's heartbeat is still fresh
+    (another session of the user is left alone); once the heartbeat goes stale, the caller takes
+    over. Claiming and taking over persist the new session_id immediately.
+    """
+    session_id = data.get("session_id")
+    if not session_id:
+        return True
+    owner = state.get("session_id")
+    if owner == session_id:
+        return True
+    if owner is not None:
+        age = shift.heartbeat_age(root)
+        if age is not None and age < FRESH_HEARTBEAT_SECONDS:
+            return False
+    state["session_id"] = session_id
+    shift.save(root, state)
+    return True
+
+
 def on_stop(root, state: dict, data: dict) -> int:
+    if not check_session(root, state, data):
+        return 0
     shift.touch_heartbeat(root)
     state["last_stop"] = shift.now().isoformat()
-    if state["status"] != "active" or data.get("background_tasks"):
+    running = any(t.get("status") == "running" for t in (data.get("background_tasks") or []))
+    if state["status"] != "active" or running:
         shift.save(root, state)
         return 0
     if shift.deadline_passed(state):
@@ -119,9 +153,10 @@ def on_prompt(root, state: dict, data: dict) -> int:
     elif prompt in RESUME_WORDS and state["status"] == "paused":
         state["status"] = "active"
         state["idle"] = {"fingerprint": "", "streak": 0}
+        state["session_id"] = data.get("session_id")
         shift.save(root, state)
-        context("UserPromptSubmit", "Sleepless shift resumed (%s). Take the next item per the "
-                                    "sleepless skill." % label(state))
+        context("UserPromptSubmit", "Sleepless shift resumed (%s). Invoke the sleepless skill and "
+                                    "take the next item." % label(state))
     return 0
 
 
@@ -137,6 +172,8 @@ def on_session_start(root, state: dict, data: dict) -> int:
 
 
 def on_stop_failure(root, state: dict, data: dict) -> int:
+    if not check_session(root, state, data):
+        return 0
     if state["status"] != "active":
         return 0
     time.sleep(retry_seconds())
@@ -148,14 +185,23 @@ def on_stop_failure(root, state: dict, data: dict) -> int:
 
 
 def on_pre_tool_use(root, state: dict, data: dict) -> int:
+    if not check_session(root, state, data):
+        return 0
     shift.touch_heartbeat(root)
     tool_input = data.get("tool_input")
     reason = guard.check(str(data.get("tool_name", "")),
                          tool_input if isinstance(tool_input, dict) else {},
                          str(data.get("cwd") or root), str(root))
+    hso = {"hookEventName": "PreToolUse"}
+    if state["status"] == "active" and shift.deadline_passed(state):
+        state["status"] = "ending"
+        shift.save(root, state)
+        hso["additionalContext"] = shift.wrap_up(state)
     if reason:
-        emit({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
-                                     "permissionDecisionReason": "sleepless: " + reason}})
+        hso["permissionDecision"] = "deny"
+        hso["permissionDecisionReason"] = "sleepless: " + reason
+    if len(hso) > 1:
+        emit({"hookSpecificOutput": hso})
     return 0
 
 
@@ -184,14 +230,18 @@ def main(argv) -> int:
         emit({"systemMessage": "sleepless: the shift state file is unreadable; the sleepless hooks "
                                "are inactive until it is fixed or removed (.claude/sleepless/)."})
         return 0
+    except Exception as e:  # noqa: BLE001 - any other failure must not break the session
+        emit({"systemMessage": "sleepless: hook error (%s: %s); the sleepless hooks are inactive "
+                               "until it is fixed" % (type(e).__name__, e)})
+        return 0
     if found is None:
         return 0
     root, state = found
     try:
         return handler(root, state, data)
-    except (KeyError, TypeError, AttributeError):
-        emit({"systemMessage": "sleepless: the shift state file is incomplete; the sleepless hooks "
-                               "are inactive until it is fixed or removed (.claude/sleepless/)."})
+    except Exception as e:  # noqa: BLE001 - any other failure must not break the session
+        emit({"systemMessage": "sleepless: hook error (%s: %s); the sleepless hooks are inactive "
+                               "until it is fixed" % (type(e).__name__, e)})
         return 0
 
 
