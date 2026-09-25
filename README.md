@@ -46,13 +46,14 @@ In any Claude Code session:
 ```
 
 or in plain words, e.g. "clean up my CLAUDE.md setup". The skill asks two questions:
-**What?** (Optimize / Build new / Undo) and **Where?** (Global / Project / Both).
+**What?** (Update / Optimize / Build new / Undo) and **Where?** (Global / Project / Both).
 
 ### What it does
 
 | Mode | When | Result |
 |---|---|---|
 | **Build new** | nothing there yet, or you want a fresh start | short questionnaire (clickable, max 4 questions at a time) → new files |
+| **Update** | you ran agent-therapist here before | runs only the checks added since then, and all checks on files that changed since then |
 | **Optimize** | files already exist | fixed checks → findings with a proposal and a reason each |
 | **Undo last change** | you don't like the result | restores the latest backup (and backs up the current state first) |
 
@@ -88,6 +89,7 @@ The conversation stays in your language.
 
 - Nothing is written without a preview and your OK.
 - Backups go to `~/.claude/backups/agent-therapist/<date>/`; "Undo last change" restores them.
+- Which checks ran on which level is kept in `~/.claude/agent-therapist/state.json`, so "Update" knows what is new.
 - Lines may be deleted (with a reason); files are never deleted, only suggested.
 - `settings.json` is only added to, then validated. New hooks are tried once.
 - Secrets found are shown masked and never copied into new files.
@@ -160,6 +162,7 @@ skills/agent-therapist/
     tokens.py                    token cost per file, before/after
     scan.py                      length, IMPORTANT, secrets, diary entries, AGENTS.md
     backup.py                    backup and undo
+    stamp.py                     remembers which checks ran, reports what is new ("Update")
 skills/sleepless/
   .claude-plugin/plugin.json     makes the skill folder a plugin (hooks load via symlink)
   SKILL.md                       the shift flow

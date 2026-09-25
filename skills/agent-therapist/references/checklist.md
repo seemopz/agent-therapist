@@ -3,12 +3,18 @@
 Read this in step 3 for "Optimize". Run the checks in order. Every finding gets a proposal and a reason.
 `$SKILL` is this skill's directory, `$G` the global directory, `$P` the project directory.
 
+Every check carries a `<!-- check: id/revision -->` marker; "Update" (SKILL.md) runs only checks whose id
+is new or whose revision went up since the last run. Maintainers: a new check gets a new id at revision 1;
+raise the revision when a check changes so that already optimized setups would get different findings.
+
 ## Check 1 – Token cost per file
+<!-- check: tokens/1 -->
 
 Show the table: `python3 $SKILL/scripts/tokens.py --global $G $P`. Point out the largest always-loaded files.
 The baseline JSON is saved in step 6; after saving (step 7): `python3 $SKILL/scripts/tokens.py --global $G --baseline $BACKUP/tokens-before.json $P`.
 
 ## Check 2 – Duplicate rules across repos → move to global
+<!-- check: duplicates/1 -->
 
 Read (never write) the top-level CLAUDE.md of every repo in `${AGENT_THERAPIST_REPOS:-$HOME/repos}`.
 For every rule you consider moving, count the exact number of repos it appears in and name them with file:line,
@@ -27,6 +33,7 @@ only if the global version covers everything this one says. Compare them; if the
 exceptions), name what would be lost and propose keeping those lines or moving them to `docs/`.
 
 ## Check 3 – Contradictions between levels
+<!-- check: contradictions/1 -->
 
 Compare global ↔ project ↔ subfolder files. Look especially for the same kind of value with different
 content in several files: colours (`#RRGGBB`), versions, commands, branch rules, language.
@@ -34,6 +41,7 @@ For each: quote both lines with file:line, say which one is current (newest date
 propose one source of truth and a link from the others.
 
 ## Check 4 – Diary, counters, outdated entries → delete
+<!-- check: diary/1 -->
 
 `python3 $SKILL/scripts/scan.py --global $G $P` → findings with `check=diary`.
 Dated headings, "State (…)", "superseded", test/commit counters are history, not instructions.
@@ -43,18 +51,21 @@ Propose: replace with a pointer to the source of truth (e.g. "latest schema vers
 Propose: delete; if the knowledge still matters, move it to `docs/HANDOFF.md` or `docs/` and keep a one-line link.
 
 ## Check 5 – Files too long (> 200 lines, target < 60)
+<!-- check: length/1 -->
 
 scan.py `check=length`. For each long file propose a split: what stays (commands, rules, pitfalls,
 boundaries) and what moves to `docs/<topic>.md` with a one-line link ("Details on X: `docs/x.md`").
 Moving is fine when the knowledge is correct but too long; deleting only with a reason.
 
 ## Check 6 – Passwords and secrets
+<!-- check: secrets/1 -->
 
 scan.py `check=secret`. Report file:line with the masked value only – never repeat the secret in chat,
 the preview, or any new file. Propose: remove the line; store the secret in a password manager or `.env`
 (not committed); if the file is in git history, tell the user the secret should be rotated.
 
 ## Check 7 – Checklist from `guide.md`
+<!-- check: guide/1 -->
 
 Go through `references/guide.md` → "Checklist": global under 30 lines · repo under 200, better under 60 ·
 every line passes "Would Claude make mistakes without this line?" · no contradictions · commands exist
@@ -63,6 +74,7 @@ and run · must-rules as hooks · workflows and long knowledge in `docs/` · at 
 CAPS shouting, generic advice ("write clean code").
 
 ## Check 8 – AGENTS.md
+<!-- check: agents/1 -->
 
 Only if the project has an `AGENTS.md`. Facts: `references/guide.md` → "AGENTS.md". scan.py `check=agents`:
 - **AGENTS.md is not loaded** (a CLAUDE.md, `.claude/CLAUDE.md` or `CLAUDE.local.md` takes precedence):
