@@ -44,6 +44,9 @@ The conversation stays in your language.
 
 ## Safety
 
+These rules apply to agent-therapist; sleepless commits and pushes on its own shift branch (see
+below).
+
 - Nothing is written without a preview and your OK.
 - Backups go to `~/.claude/backups/agent-therapist/<date>/`; "Undo last change" restores them.
 - Lines may be deleted (with a reason); files are never deleted, only suggested.
@@ -55,12 +58,18 @@ The conversation stays in your language.
 ## Install
 
 Requirements: Claude Code, `python3` (3.9 or newer, standard library only), `git`. `gh` is optional
-(used read-only to detect branch protection and pull requests).
+(used read-only to detect branch protection and pull requests). The sleepless skill needs `gh` with
+write access to open its pull requests.
 
 ```bash
 git clone <repo-url> ~/repos/agent-therapist
 ln -s ~/repos/agent-therapist/skills/agent-therapist ~/.claude/skills/agent-therapist
+ln -s ~/repos/agent-therapist/skills/sleepless ~/.claude/skills/sleepless
 ```
+
+`skills/sleepless` has its own `.claude-plugin/plugin.json`, so the symlink loads it as plugin
+`sleepless@skills-dir` including its hooks. Use either the symlinks or the plugin install below,
+not both – otherwise every sleepless hook runs twice.
 
 Or load it as a plugin for one session:
 
@@ -78,6 +87,28 @@ In any Claude Code session:
 
 or in plain words, e.g. "clean up my CLAUDE.md setup". The skill asks two questions:
 **What?** (Optimize / Build new / Undo) and **Where?** (Global / Project / Both).
+
+## sleepless
+
+A second skill: a long autonomous work shift in any git repo. Claude works through a task list and
+then quality work on branch `sleepless/<date>`, commits and pushes after every step, and ends with
+`SLEEPLESS-REPORT.md` and a pull request (never a merge). Start it with `/sleepless` or "work
+through the night".
+
+Hooks do the parts that must not depend on Claude:
+
+| Hook | Does |
+|---|---|
+| Stop | keeps the turn going; pauses when more than 6 stop attempts in a row bring no repo change (`SLEEPLESS_IDLE_LIMIT`, clamped to 1-6) |
+| UserPromptSubmit | `stop` ends the shift, `weiter` or `resume shift` resumes a paused one |
+| SessionStart | wakes a restarted session and continues the shift |
+| StopFailure | tries to wake the shift 15 minutes after a rate limit, overload or server error (best effort: Claude Code documents StopFailure as notification-only; not verified in a real session) |
+| PreToolUse | blocks force push, push to main/master, deleting remote branches, merging, deleting outside the repo, sending messages |
+
+Without an active shift the hooks do nothing. State lives in `.claude/sleepless/` (git-excluded).
+Keeping the machine awake is up to you. A second session in the same checkout is ignored by the
+hooks while the shift session is alive (heartbeat younger than 10 minutes); use a separate worktree
+for parallel work.
 
 ## Layout
 
@@ -97,6 +128,14 @@ skills/agent-therapist/
     tokens.py                    token cost per file, before/after
     scan.py                      length, IMPORTANT, secrets, diary entries, AGENTS.md
     backup.py                    backup and undo
+skills/sleepless/
+  .claude-plugin/plugin.json     makes the skill folder a plugin (hooks load via symlink)
+  SKILL.md                       the shift flow
+  hooks/hooks.json, hook.py      hook registration and entry point
+  hooks/guard.py                 commands blocked during a shift
+  scripts/shift.py               shift state and CLI
+  templates/SLEEPLESS-REPORT.md  report skeleton
+hooks/hooks.json                 sleepless hooks for the plugin install
 tests/                           pytest + scenario tests
 docs/                            design, plan, German version of the guide
 ```

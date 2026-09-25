@@ -6,7 +6,7 @@ Claude Code skill that builds or tidies up a user's Claude Code setup: CLAUDE.md
 - Scenario tests: `tests/sandbox.sh`, then follow `tests/scenarios.md`
 
 ## Pitfalls
-- `~/.claude/skills/agent-therapist` is a symlink to `skills/agent-therapist/` – every edit is live in real sessions.
+- `~/.claude/skills/agent-therapist` and `~/.claude/skills/sleepless` are symlinks into `skills/` – every edit is live in real sessions, including the sleepless hooks.
 - Scripts and hooks run with system `python3` 3.9: standard library only, no syntax newer than 3.9.
 - Tests and examples use generic placeholders, never real private repo names.
 
