@@ -55,9 +55,17 @@ wherever `$BACKUP` appears next.
 
 ## Step 1 – Start
 
-Ask **What?** (Optimize (Recommended if files exist) / Build new / Undo last change) and **Where?**
+First run `python3 $SKILL/scripts/stamp.py diff --global $G --project $P` (omit `--project $P` if there
+is no git root). It reports per level whether agent-therapist ran there before (`stamped`) and what is
+new since: `new_checks`, `updated_checks`, `changed_files`, `added_files`, `removed_files`.
+
+Ask **What?** (Update / Optimize / Build new / Undo last change) and **Where?**
 (Global / Project / Both) in one call (question tool, clickable) – except when "What?" is already known
 to be "Undo last change": Undo has no scope, so never ask "Where?" for it.
+- **Update** – only if a level is stamped; then it is first and (Recommended), with what is new in the
+  label, e.g. "Update (2 new checks, 1 changed file since 2026-09-25)". If nothing is new on any stamped
+  level, say "up to date since <date>" instead and drop the option.
+- **Optimize** – (Recommended) if files exist and Update is not offered.
 
 If neither `$G/CLAUDE.md`, `$G/rules/` nor any CLAUDE.md or AGENTS.md in `$P` exists, skip "What?" – it is "Build new".
 If the user's first message already answers these, don't ask again.
@@ -109,6 +117,14 @@ scope Global: `python3 $SKILL/scripts/scan.py --global $G $P`). Collect findings
 file:line, what, proposal, reason. Do not ask per finding yet – that happens in step 5.
 Then ask the questions `questions.md` → Question plan lists for "Project, Optimize" (deviations,
 hooks, permissions).
+
+**Update:** Optimize, narrowed per level with the `stamp.py diff` result from step 1:
+- checks in `new_checks` + `updated_checks` → run on all files of that level;
+- files in `changed_files` + `added_files` → run all checks 1–8 on just these files;
+- `removed_files` → mention in the summary only.
+Skip the questions for deviations, hooks and permissions unless a finding needs one. A level in scope
+without a stamp runs as Optimize – say so in one line. If nothing is new on a stamped level, say
+"<level>: up to date since <date>" and leave it out.
 
 If scope Both ended up with different modes per level (see Step 1), run both procedures: Build new
 for the empty level, Optimize for the other – each scoped to just that level's files.
@@ -172,6 +188,11 @@ apply / skip. Nothing is written before this answer.
    For `done-check`, show how long the test run took; if it is longer than 10 s, say that every
    changed answer will wait that long and offer to remove the hook.
 5. Check that every command written into a CLAUDE.md exists (`which` / script present).
+6. Stamp every level that ran (Build new, Optimize or Update), so "Update" later knows what is new:
+   `python3 $SKILL/scripts/stamp.py save --global $G --level global --level project --project $P`
+   (pass only the levels that ran). Also do this when the user answered "nothing" in step 5 – declined
+   findings then don't come back through Update, only through Optimize. The stamp lives in
+   `$G/agent-therapist/state.json`; it is internal state, not a user file, so it needs no preview.
 
 ## Step 7 – Finish
 
@@ -180,6 +201,7 @@ Show in ≤ 10 lines:
 - what changed (files, number of lines deleted / moved / new)
 - tokens before → after (omit `$P` for scope Global): `python3 $SKILL/scripts/tokens.py --global $G --baseline $BACKUP/tokens-before.json $P`
 - where the backup is, and that "Undo last change" in `/agent-therapist` restores it
+- that "Update" in `/agent-therapist` later checks only what is new since today
 - if any rule moved to or was added in global because it was found in other repos (Check 2): list
   where it still appears there (repo/file:line + a short quote), with the note "agent-therapist does not
   edit other repos; remove these with `/agent-therapist` → Optimize in that repo."

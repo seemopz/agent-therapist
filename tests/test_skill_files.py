@@ -237,3 +237,10 @@ def test_agents_md_is_documented_and_protected_in_build_new():
     skill = (SKILL_DIR / "SKILL.md").read_text()
     assert "Never create `$P/CLAUDE.md` without asking first" in skill
     assert "## Check 8 – AGENTS.md" in (REF / "checklist.md").read_text()
+
+
+def test_skill_offers_update_and_stamps_after_saving():
+    text = SKILL_MD.read_text()
+    assert "scripts/stamp.py diff" in text
+    assert "scripts/stamp.py save" in text
+    assert "**Update:**" in text
