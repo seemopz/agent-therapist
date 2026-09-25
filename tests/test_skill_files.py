@@ -239,6 +239,18 @@ def test_agents_md_is_documented_and_protected_in_build_new():
     assert "## Check 8 – AGENTS.md" in (REF / "checklist.md").read_text()
 
 
+def test_every_question_has_a_recommendation():
+    import re
+    skill = SKILL_MD.read_text()
+    assert "Every question gets a recommendation" in skill
+    questions = (REF / "questions.md").read_text()
+    for line in re.findall(r"^\d+\. \*\*.*$", questions, re.M):
+        assert "Recommended" in line, line
+    assert "Where?**\n(Global / Project / Both" not in skill
+    assert "apply all (Recommended)" in skill
+    assert "mark every recommended option" in skill
+
+
 def test_skill_offers_update_and_stamps_after_saving():
     text = SKILL_MD.read_text()
     assert "scripts/stamp.py diff" in text
