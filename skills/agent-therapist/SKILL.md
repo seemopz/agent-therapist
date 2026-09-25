@@ -37,6 +37,11 @@ wherever `$BACKUP` appears next.
    is always in English, no matter what language the chat is in – unless the user explicitly asks
    for another language. Rules about the chat language are written in English too, e.g.
    "Reply in German. Be brief, result first." Reason: fewer tokens, matches code and commands.
+6. **Every question gets a recommendation** – every single one, in every step, with a one-line
+   reason in its description. Single choice: exactly one option first, marked "(Recommended)".
+   Multi-select: mark every recommended option "(Recommended)" and preselect all of them – usually
+   several. Free text: offer a concrete draft (from the findings) as the recommended answer. No clear winner → recommend the option matching the findings or the
+   safest one, and say so.
 
 ## Safety – always
 
@@ -55,8 +60,8 @@ wherever `$BACKUP` appears next.
 
 ## Step 1 – Start
 
-Ask **What?** (Optimize (Recommended if files exist) / Build new / Undo last change) and **Where?**
-(Global / Project / Both) in one call (question tool, clickable) – except when "What?" is already known
+Ask **What?** (Optimize (Recommended if files exist, else Build new) / Build new / Undo last change) and
+**Where?** (Both (Recommended inside a git repo, else Global) / Global / Project) in one call (question tool, clickable) – except when "What?" is already known
 to be "Undo last change": Undo has no scope, so never ask "Where?" for it.
 
 If neither `$G/CLAUDE.md`, `$G/rules/` nor any CLAUDE.md or AGENTS.md in `$P` exists, skip "What?" – it is "Build new".
@@ -157,7 +162,7 @@ Per file, show the planned result as a list:
 The proposed CLAUDE.md/`rules/*.md` line itself is always in English (Principle 5); the reason next
 to it stays in the user's language.
 
-Then ask: apply all / choose one by one / nothing. "One by one" goes through each file with
+Then ask: apply all (Recommended) / choose one by one / nothing. "One by one" goes through each file with
 apply / skip. Nothing is written before this answer.
 
 ## Step 6 – Save
