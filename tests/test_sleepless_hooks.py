@@ -18,7 +18,7 @@ EVENTS = ["stop", "prompt", "session-start", "stop-failure", "pre-tool-use"]
 def run_hook(repo, event, payload=None, project_dir=None, **env):
     data = {"cwd": str(repo)}
     data.update(payload or {})
-    e = {"PATH": os.environ["PATH"], "HOME": os.environ.get("HOME", ""),
+    e = {**os.environ,
          "CLAUDE_PROJECT_DIR": str(project_dir or repo), "SLEEPLESS_RETRY_SECONDS": "0"}
     e.update(env)
     return subprocess.run([sys.executable, str(HOOK), event], input=json.dumps(data),
