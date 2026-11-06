@@ -33,14 +33,14 @@ CHECKLIST_V2 = """# Checks
 def _setup(tmp_path: Path) -> tuple[Path, Path]:
     g = tmp_path / "home" / ".claude"
     (g / "rules").mkdir(parents=True)
-    (g / "CLAUDE.md").write_text("# Me\n")
-    (g / "rules" / "git.md").write_text("# Git\n")
-    (g / "settings.json").write_text("{}\n")
+    (g / "CLAUDE.md").write_text("# Me\n", encoding="utf-8")
+    (g / "rules" / "git.md").write_text("# Git\n", encoding="utf-8")
+    (g / "settings.json").write_text("{}\n", encoding="utf-8")
     p = tmp_path / "proj"
     (p / ".claude").mkdir(parents=True)
-    (p / "CLAUDE.md").write_text("# proj\n")
-    (p / ".claude" / "settings.json").write_text("{}\n")
-    (p / ".claude" / "settings.local.json").write_text("{}\n")
+    (p / "CLAUDE.md").write_text("# proj\n", encoding="utf-8")
+    (p / ".claude" / "settings.json").write_text("{}\n", encoding="utf-8")
+    (p / ".claude" / "settings.local.json").write_text("{}\n", encoding="utf-8")
     return g.resolve(), p.resolve()
 
 
@@ -49,7 +49,7 @@ def test_checks_parses_ids_and_revisions():
 
 
 def test_real_checklist_has_an_id_per_check():
-    text = (SKILL_DIR / "references" / "checklist.md").read_text()
+    text = (SKILL_DIR / "references" / "checklist.md").read_text(encoding="utf-8")
     found = checks(text)
     assert len(found) == text.count("\n## Check ")
     assert all(rev >= 1 for rev in found.values())
@@ -88,11 +88,11 @@ def test_diff_reports_new_and_updated_checks(tmp_path):
 def test_diff_reports_changed_added_and_removed_files(tmp_path):
     g, p = _setup(tmp_path)
     save(g, p, checks(CHECKLIST_V1), version="0.2.0", now=T1)
-    (p / "CLAUDE.md").write_text("# proj\nnew line\n")
+    (p / "CLAUDE.md").write_text("# proj\nnew line\n", encoding="utf-8")
     (p / ".claude" / "settings.json").unlink()
     (p / "sub").mkdir()
-    (p / "sub" / "CLAUDE.md").write_text("# sub\n")
-    (p / ".claude" / "settings.local.json").write_text('{"x": 1}\n')  # ignored
+    (p / "sub" / "CLAUDE.md").write_text("# sub\n", encoding="utf-8")
+    (p / ".claude" / "settings.local.json").write_text('{"x": 1}\n', encoding="utf-8")  # ignored
     result = diff(g, p, checks(CHECKLIST_V1))
     assert result["changed_files"] == [str(p / "CLAUDE.md")]
     assert result["added_files"] == [str(p / "sub" / "CLAUDE.md")]
@@ -103,19 +103,19 @@ def test_levels_are_stamped_separately(tmp_path):
     g, p = _setup(tmp_path)
     save(g, p, checks(CHECKLIST_V1), version="0.2.0", now=T1)
     assert diff(g, None, checks(CHECKLIST_V1)) == {"stamped": False}
-    state = json.loads((g / "agent-therapist" / "state.json").read_text())
+    state = json.loads((g / "agent-therapist" / "state.json").read_text(encoding="utf-8"))
     assert list(state) == [f"project:{p}"]
 
 
 def test_cli_save_then_diff(tmp_path):
     g, p = _setup(tmp_path)
     checklist = tmp_path / "checklist.md"
-    checklist.write_text(CHECKLIST_V1)
+    checklist.write_text(CHECKLIST_V1, encoding="utf-8")
     run = lambda *a: subprocess.run([sys.executable, str(SCRIPT), *a, "--global", str(g),
                                      "--checklist", str(checklist)],
                                     capture_output=True, text=True, check=True)
     run("save", "--level", "global", "--project", str(p), "--level", "project")
-    checklist.write_text(CHECKLIST_V2)
+    checklist.write_text(CHECKLIST_V2, encoding="utf-8")
     out = json.loads(run("diff", "--project", str(p)).stdout)
     assert set(out) == {"global", "project"}
     assert out["global"]["new_checks"] == ["agents"]
@@ -125,7 +125,7 @@ def test_cli_save_then_diff(tmp_path):
 def test_cli_diff_without_project_only_reports_global(tmp_path):
     g, _ = _setup(tmp_path)
     checklist = tmp_path / "checklist.md"
-    checklist.write_text(CHECKLIST_V1)
+    checklist.write_text(CHECKLIST_V1, encoding="utf-8")
     out = subprocess.run([sys.executable, str(SCRIPT), "diff", "--global", str(g),
                           "--checklist", str(checklist)],
                          capture_output=True, text=True, check=True).stdout

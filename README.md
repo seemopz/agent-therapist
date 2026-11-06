@@ -1,6 +1,6 @@
 # agent-therapist
 
-A Claude Code plugin with three skills:
+A Claude Code plugin and a separate set of Codex skills with three workflows:
 
 | Skill | What it does |
 |---|---|
@@ -10,7 +10,38 @@ A Claude Code plugin with three skills:
 
 Made for people who want Claude Code to work well without knowing every detail of it.
 
+The Claude plugin and its hooks live in `skills/`. The Codex versions live in
+`codex/skills/` and use Codex instructions and configuration instead of Claude settings.
+
 ## Install
+
+### Codex
+
+The current Codex documentation places user skills under `~/.agents/skills`. For example, on macOS or Linux:
+
+```bash
+mkdir -p "$HOME/.agents/skills"
+ln -s ~/repos/agent-therapist/codex/skills/agent-therapist "$HOME/.agents/skills/agent-therapist"
+ln -s ~/repos/agent-therapist/codex/skills/sleepless "$HOME/.agents/skills/sleepless"
+ln -s ~/repos/agent-therapist/codex/skills/preprompt "$HOME/.agents/skills/preprompt"
+```
+
+On Windows, copy the three directories from `codex/skills/` into `%USERPROFILE%\.agents\skills\`;
+update the copies when the repo changes. Older clients may also load `.codex/skills`; use one
+installation location to avoid duplicate skills. Codex detects skill changes automatically;
+restart it if a skill does not appear. See the [official skill documentation](https://learn.chatgpt.com/docs/build-skills).
+Invoke them as `$agent-therapist`, `$sleepless`, and
+`$preprompt`, or ask for their workflows in plain language.
+
+Codex's agent-therapist reviews Codex instructions and configuration, with a preview and backup
+before changes. A new or rebuilt setup includes a guided global/project interview in small rounds;
+existing files provide suggestions to confirm. Optimize asks only about unresolved findings.
+Its workflow does not use the Claude-specific scanner or update stamps. Codex's
+sleepless runs a sustained session while it is active, but does not install Claude hooks: automatic
+continuation, restart, rate-limit recovery, and hook-enforced command guards are not provided.
+Resume an interrupted session using `SLEEPLESS-REPORT.md`. The remaining sections describe Claude.
+
+### Claude Code
 
 Requirements: Claude Code, `python3` (3.9 or newer, standard library only), `git`.
 `gh` is optional for agent-therapist (used read-only to detect branch protection and pull requests)
@@ -216,6 +247,9 @@ redirect the global folder and the repo collection into the sandbox.
 To try sleepless end to end, start a shift in a scratch repo with
 `python3 ~/repos/agent-therapist/skills/sleepless/scripts/shift.py start …`, then run
 `claude -p "…" --plugin-dir ~/repos/agent-therapist` there.
+
+Tests run on Linux and Windows with Python 3.9 and 3.14; POSIX-only tests run on Linux.
+The release workflow waits for these checks before running release-please.
 
 Releases come from release-please: Conventional Commits on `main` open a release PR that
 bumps the version in `pyproject.toml` and `.claude-plugin/plugin.json` and writes `CHANGELOG.md`.

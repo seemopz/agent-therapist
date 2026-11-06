@@ -37,7 +37,7 @@ As of 24 September 2026, based on the Claude Code docs and our own measurements.
 
 - Claude Code reads `AGENTS.md` natively – no hook, no setting needed
 - `~/.claude/CLAUDE.md` and `rules/` do **not** block it; `CLAUDE.local.md` does
-- `/config` → **Project instructions** (user settings: `pluginConfigs."agents-md@builtin".options.instructionFiles`):
+- `/config` → **Project instructions** (user settings: `pluginConfigs."cc-plugin-agents-md@builtin".options.instructionFiles`; the legacy `agents-md@builtin` ID also works):
   `claude-md-or-agents-md` (default) · `claude-md-and-agents-md` · `claude-md` · `managed-only`
 - repo with both files → `CLAUDE.md` starts with `@AGENTS.md`, below it only Claude-specific lines
 - symlink `CLAUDE.md → AGENTS.md` is fine (not on Windows)

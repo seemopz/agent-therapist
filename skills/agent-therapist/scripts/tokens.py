@@ -52,7 +52,7 @@ def _add_imports(rows: list[dict]) -> None:
         if depth >= MAX_IMPORT_HOPS:
             continue
         try:
-            text = src.read_text(errors="replace")
+            text = src.read_text(errors="replace", encoding="utf-8")
         except OSError:
             continue
         for target in imports(src, text):
@@ -63,7 +63,7 @@ def _add_imports(rows: list[dict]) -> None:
             row = by_path.get(key)
             if row is None:
                 try:
-                    content = target.read_text(errors="replace")
+                    content = target.read_text(errors="replace", encoding="utf-8")
                 except OSError as e:
                     print(f"warning: cannot read {target}: {e}", file=sys.stderr)
                     continue
@@ -90,7 +90,7 @@ def measure(files: list[MemFile]) -> dict:
     rows = []
     for m in files:
         try:
-            text = m.path.read_text(errors="replace")
+            text = m.path.read_text(errors="replace", encoding="utf-8")
         except OSError as e:
             print(f"warning: cannot read {m.path}: {e}", file=sys.stderr)
             continue
@@ -134,10 +134,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))
     else:
-        baseline = json.loads(args.baseline.read_text()) if args.baseline else None
+        baseline = json.loads(args.baseline.read_text(encoding="utf-8")) if args.baseline else None
         print(render(report, baseline))
     return 0
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     sys.exit(main())

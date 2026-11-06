@@ -25,7 +25,7 @@ def checks(checklist_text: str) -> dict[str, int]:
 
 def plugin_version() -> str | None:
     try:
-        return json.loads(PLUGIN_JSON.read_text())["version"]
+        return json.loads(PLUGIN_JSON.read_text(encoding="utf-8"))["version"]
     except (OSError, ValueError, KeyError):
         return None
 
@@ -59,7 +59,7 @@ def _sha(path: Path) -> str:
 
 def _load(g: Path) -> dict:
     try:
-        return json.loads(_state_file(g).read_text())
+        return json.loads(_state_file(g).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
 
@@ -76,7 +76,7 @@ def save(g: Path, p: Path | None, current: dict[str, int], version: str | None =
     state[_key(p)] = entry
     target = _state_file(g)
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(state, indent=2) + "\n")
+    target.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
     return entry
 
 
@@ -114,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
     levels = args.level or (["global", "project"] if args.project else ["global"])
     if "project" in levels and args.project is None:
         ap.error("--level project needs --project")
-    current = checks(args.checklist.read_text())
+    current = checks(args.checklist.read_text(encoding="utf-8"))
     out = {}
     for level in levels:
         p = args.project.expanduser().resolve() if level == "project" else None

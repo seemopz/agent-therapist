@@ -32,9 +32,11 @@ def instruction_mode(global_dir: Path | None) -> str:
     if global_dir is None:
         return DEFAULT_MODE
     try:
-        data = json.loads((global_dir / "settings.json").read_text())
-        mode = data["pluginConfigs"]["agents-md@builtin"]["options"]["instructionFiles"]
-    except (OSError, ValueError, KeyError, TypeError):
+        data = json.loads((global_dir / "settings.json").read_text(encoding="utf-8"))
+        configs = data["pluginConfigs"]
+        plugin = configs.get("cc-plugin-agents-md@builtin", configs.get("agents-md@builtin", {}))
+        mode = plugin["options"]["instructionFiles"]
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return DEFAULT_MODE
     return mode if mode in MODES else DEFAULT_MODE
 
@@ -51,7 +53,7 @@ def has_claude_md(d: Path, global_dir: Path | None = None) -> bool:
 
 def _rule_when(path: Path) -> str:
     try:
-        head = path.read_text(errors="replace")[:2000]
+        head = path.read_text(encoding="utf-8", errors="replace")[:2000]
     except OSError:
         return "always"
     return "on demand" if _PATHS_FRONTMATTER.search(head) else "always"

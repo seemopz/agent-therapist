@@ -51,7 +51,7 @@ def _mask(value: str) -> str:
 
 def scan_file(path: Path, is_global: bool = False) -> list[Finding]:
     f = str(path)
-    lines = path.read_text(errors="replace").splitlines()
+    lines = path.read_text(errors="replace", encoding="utf-8").splitlines()
     out: list[Finding] = []
 
     n = len(lines)
@@ -107,7 +107,7 @@ def scan_agents_setup(report: dict) -> list[Finding]:
 def scan_settings(path: Path) -> list[Finding]:
     """SessionStart hooks that print AGENTS.md – a leftover from before Claude Code read it natively."""
     try:
-        raw = path.read_text(errors="replace")
+        raw = path.read_text(errors="replace", encoding="utf-8")
         hooks = json.loads(raw).get("hooks", {}).get("SessionStart", [])
     except (OSError, ValueError, AttributeError):
         return []
@@ -153,4 +153,6 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     sys.exit(main())

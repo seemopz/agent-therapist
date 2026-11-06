@@ -146,6 +146,8 @@ def on_stop(root, state: dict, data: dict) -> int:
 
 def on_prompt(root, state: dict, data: dict) -> int:
     prompt = normalise(str(data.get("prompt", "")))
+    if prompt not in STOP_WORDS | RESUME_WORDS or not check_session(root, state, data):
+        return 0
     if prompt in STOP_WORDS and state["status"] in ("active", "paused"):
         state["status"] = "ending"
         shift.save(root, state)

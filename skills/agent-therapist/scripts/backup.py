@@ -8,10 +8,11 @@ import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 
 
 def _stored(backup: Path, original: Path) -> Path:
-    return backup / "files" / str(original).lstrip("/")
+    return (backup / "files" / quote(original.drive, safe="")).joinpath(*original.parts[1:])
 
 
 def save(root: Path, files: list[Path], now: datetime | None = None) -> Path:
@@ -32,7 +33,7 @@ def save(root: Path, files: list[Path], now: datetime | None = None) -> Path:
             shutil.copy2(f, dest)
         entries.append({"path": str(f), "existed": existed})
     manifest = {"created": (now or datetime.now()).isoformat(timespec="seconds"), "files": entries}
-    (backup / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (backup / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return backup
 
 
@@ -40,12 +41,12 @@ def list_backups(root: Path) -> list[Path]:
     if not root.is_dir():
         return []
     dirs = [d for d in root.iterdir() if (d / "manifest.json").is_file()]
-    return sorted(dirs, key=lambda d: (json.loads((d / "manifest.json").read_text())["created"], d.name),
+    return sorted(dirs, key=lambda d: (json.loads((d / "manifest.json").read_text(encoding="utf-8"))["created"], d.name),
                   reverse=True)
 
 
 def restore(backup: Path, dry_run: bool = False, remove_created: bool = False) -> dict:
-    manifest = json.loads((backup / "manifest.json").read_text())
+    manifest = json.loads((backup / "manifest.json").read_text(encoding="utf-8"))
     result: dict = {"restored": [], "created": [], "removed": []}
     for e in manifest["files"]:
         target = Path(e["path"])
@@ -92,7 +93,7 @@ def main(argv: list[str] | None = None) -> int:
         if not args.dry_run:
             # Restoring overwrites live files; without this, edits made after the backed-up run
             # (or the run itself) would be lost with no way back. Save them first.
-            manifest = json.loads((chosen / "manifest.json").read_text())
+            manifest = json.loads((chosen / "manifest.json").read_text(encoding="utf-8"))
             current = [Path(e["path"]) for e in manifest["files"]]
             result["safety_backup"] = str(save(args.root, current))
         result.update(restore(chosen, args.dry_run, args.remove_created))

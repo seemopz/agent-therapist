@@ -1,20 +1,27 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
 import subprocess
 import sys
 from pathlib import Path
 
-from conftest import SKILL_DIR
+import pytest
+
+from conftest import ROOT, SKILL_DIR
 
 HOOKS_MD = SKILL_DIR / "references" / "hooks.md"
 BLOCK = re.compile(r"<!-- hook: (\S+) -->\s*```python\n(.*?)```", re.S)
 
 
+def quote(value):
+    return subprocess.list2cmdline([value]) if os.name == "nt" else shlex.quote(value)
+
+
 def templates() -> dict[str, str]:
-    return dict(BLOCK.findall(HOOKS_MD.read_text()))
+    return dict(BLOCK.findall(HOOKS_MD.read_text(encoding="utf-8")))
 
 
 def install(tmp_path: Path, name: str, config_line: str | None = None) -> Path:
@@ -24,13 +31,13 @@ def install(tmp_path: Path, name: str, config_line: str | None = None) -> Path:
         code, n = re.subn(rf"^{key} = .*$", lambda _: config_line, code, count=1, flags=re.M)
         assert n == 1, f"{name}: config line {key} missing"
     p = tmp_path / f"{name}.py"
-    p.write_text(code)
+    p.write_text(code, encoding="utf-8")
     return p
 
 
 def run(script: Path, payload: dict, cwd: Path) -> subprocess.CompletedProcess:
     return subprocess.run([sys.executable, str(script)], input=json.dumps(payload), text=True,
-                          capture_output=True, cwd=cwd, env={"CLAUDE_PROJECT_DIR": str(cwd), "PATH": "/usr/bin:/bin"})
+                          capture_output=True, cwd=cwd, env={**os.environ, "CLAUDE_PROJECT_DIR": str(cwd)})
 
 
 def test_all_four_templates_present():
@@ -38,7 +45,7 @@ def test_all_four_templates_present():
 
 
 def _json_blocks() -> list[str]:
-    return re.findall(r"```json\n(.*?)```", HOOKS_MD.read_text(), re.S)
+    return re.findall(r"```json\n(.*?)```", HOOKS_MD.read_text(encoding="utf-8"), re.S)
 
 
 def _commands(node) -> list[str]:
@@ -121,7 +128,7 @@ def test_no_commit_on_main_respects_dash_c_path(tmp_path):
     subprocess.run(["git", "init", "-q", "-b", "main", str(feature_repo)], check=True)
     subprocess.run(["git", "-C", str(feature_repo), "symbolic-ref", "HEAD", "refs/heads/feat/x"], check=True)
     s = install(feature_repo, "no-commit-on-main")
-    payload = {"tool_name": "Bash", "tool_input": {"command": f"git -C {main_repo} commit -m x"},
+    payload = {"tool_name": "Bash", "tool_input": {"command": f"git -C {shlex.quote(main_repo.as_posix())} commit -m x"},
                "cwd": str(feature_repo)}
     r = run(s, payload, feature_repo)
     assert r.returncode == 2 and "main" in r.stderr
@@ -129,24 +136,25 @@ def test_no_commit_on_main_respects_dash_c_path(tmp_path):
 
 def test_format_after_edit_runs_formatter_and_never_blocks(tmp_path):
     marker = tmp_path / "formatted.txt"
-    line = f'FORMATTERS = {{".py": [{sys.executable!r}, "-c", "import sys; open({str(marker)!r}, \\"w\\").write(sys.argv[1])"]}}'
+    code = f"import sys; open({str(marker)!r}, 'w', encoding='utf-8').write(sys.argv[1])"
+    line = "FORMATTERS = " + repr({".py": [sys.executable, "-c", code]})
     s = install(tmp_path, "format-after-edit", line)
     target = tmp_path / "a.py"
-    target.write_text("x=1\n")
+    target.write_text("x=1\n", encoding="utf-8")
     r = run(s, {"tool_name": "Write", "tool_input": {"file_path": str(target)}, "cwd": str(tmp_path)}, tmp_path)
     assert r.returncode == 0
-    assert marker.read_text() == str(target)
+    assert marker.read_text(encoding="utf-8") == str(target)
     r = run(s, {"tool_name": "Write", "tool_input": {"file_path": str(tmp_path / "b.md")}, "cwd": str(tmp_path)}, tmp_path)
     assert r.returncode == 0
 
 
 def test_done_check(tmp_path):
-    py = shlex.quote(sys.executable)
-    fail_cmd = py + " -c " + shlex.quote('print("2 failed"); raise SystemExit(1)')
+    py = quote(sys.executable)
+    fail_cmd = py + " -c " + quote('print("2 failed"); raise SystemExit(1)')
     failing = install(tmp_path, "done-check", f"TEST_CMD = {fail_cmd!r}")
     r = run(failing, {"stop_hook_active": False, "cwd": str(tmp_path)}, tmp_path)
     assert r.returncode == 2 and "2 failed" in r.stderr
-    assert run(failing, {"stop_hook_active": True, "cwd": str(tmp_path)}, tmp_path).returncode == 0
+    assert run(failing, {"stop_hook_active": True, "cwd": str(tmp_path)}, tmp_path).returncode == 2
     passing = install(tmp_path, "done-check", f"TEST_CMD = {py + ' -c pass'!r}")
     assert run(passing, {"stop_hook_active": False, "cwd": str(tmp_path)}, tmp_path).returncode == 0
 
@@ -156,17 +164,18 @@ def test_done_check_missing_test_command(tmp_path):
     r = run(s, {"stop_hook_active": False, "cwd": str(tmp_path)}, tmp_path)
     assert r.returncode == 2
     assert "definitely-not-a-command-xyz" in r.stderr
-    assert "Test command not runnable" in r.stderr
-    assert run(s, {"stop_hook_active": True, "cwd": str(tmp_path)}, tmp_path).returncode == 0
+    assert "Test command not runnable" in r.stderr or "Tests fail" in r.stderr
+    assert run(s, {"stop_hook_active": True, "cwd": str(tmp_path)}, tmp_path).returncode == 2
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX shell glob expansion")
 def test_done_check_runs_compound_commands_and_globs(tmp_path):
-    py = shlex.quote(sys.executable)
+    py = quote(sys.executable)
     (tmp_path / "tests").mkdir()
-    (tmp_path / "tests" / "a.test.txt").write_text("x")
+    (tmp_path / "tests" / "a.test.txt").write_text("x", encoding="utf-8")
     ok = install(tmp_path, "done-check", f"TEST_CMD = {'ls tests/*.test.txt && ' + py + ' -c pass'!r}")
     assert run(ok, {"stop_hook_active": False, "cwd": str(tmp_path)}, tmp_path).returncode == 0
-    second_fails = install(tmp_path, "done-check", f"TEST_CMD = {py + ' -c pass && ' + py + ' -c ' + shlex.quote('raise SystemExit(1)')!r}")
+    second_fails = install(tmp_path, "done-check", f"TEST_CMD = {py + ' -c pass && ' + py + ' -c ' + quote('raise SystemExit(1)')!r}")
     assert run(second_fails, {"stop_hook_active": False, "cwd": str(tmp_path)}, tmp_path).returncode == 2
 
 
@@ -180,15 +189,15 @@ def test_done_check_skips_when_nothing_changed_since_last_pass(tmp_path):
     repo = tmp_path / "repo"
     _git_repo(repo)
     counter = tmp_path / "count.txt"
-    cmd = shlex.quote(sys.executable) + " -c " + shlex.quote(f"open({str(counter)!r}, 'a').write('x')")
+    cmd = quote(sys.executable) + " -c " + quote(f"open({str(counter)!r}, 'a').write('x')")
     s = install(tmp_path, "done-check", f"TEST_CMD = {cmd!r}")
     payload = {"stop_hook_active": False, "cwd": str(repo)}
     assert run(s, payload, repo).returncode == 0
     assert run(s, payload, repo).returncode == 0
-    assert counter.read_text() == "x", "second run with unchanged repo must skip the tests"
-    (repo / "a.txt").write_text("changed")
+    assert counter.read_text(encoding="utf-8") == "x", "second run with unchanged repo must skip the tests"
+    (repo / "a.txt").write_text("changed", encoding="utf-8")
     assert run(s, payload, repo).returncode == 0
-    assert counter.read_text() == "xx", "a change must run the tests again"
+    assert counter.read_text(encoding="utf-8") == "xx", "a change must run the tests again"
 
 
 def test_done_check_never_skips_after_a_failure(tmp_path):
@@ -196,9 +205,41 @@ def test_done_check_never_skips_after_a_failure(tmp_path):
     _git_repo(repo)
     counter = tmp_path / "count.txt"
     code = f"open({str(counter)!r}, 'a').write('x'); raise SystemExit(1)"
-    cmd = shlex.quote(sys.executable) + " -c " + shlex.quote(code)
+    cmd = quote(sys.executable) + " -c " + quote(code)
     s = install(tmp_path, "done-check", f"TEST_CMD = {cmd!r}")
     payload = {"stop_hook_active": False, "cwd": str(repo)}
     assert run(s, payload, repo).returncode == 2
     assert run(s, payload, repo).returncode == 2
-    assert counter.read_text() == "xx"
+    assert counter.read_text(encoding="utf-8") == "xx"
+
+
+def test_done_check_rechecks_changed_untracked_contents(tmp_path):
+    repo = tmp_path / "repo"
+    _git_repo(repo)
+    source = repo / "new.txt"
+    source.write_text("passing", encoding="utf-8")
+    code = "from pathlib import Path; raise SystemExit(Path('new.txt').read_text() != 'passing')"
+    cmd = quote(sys.executable) + " -c " + quote(code)
+    script = install(tmp_path, "done-check", f"TEST_CMD = {cmd!r}")
+    payload = {"cwd": str(repo)}
+    assert run(script, payload, repo).returncode == 0
+    source.write_text("failing", encoding="utf-8")
+    assert run(script, payload, repo).returncode == 2
+    assert run(script, dict(payload, stop_hook_active=True), repo).returncode == 2
+
+
+def test_installed_hooks_match_templates():
+    for name in ("protect-files", "no-commit-on-main", "done-check"):
+        installed = (ROOT / ".claude" / "hooks" / (name + ".py")).read_text(encoding="utf-8")
+        if name == "done-check":
+            installed = installed.replace('TEST_CMD = "uv run pytest -q"', 'TEST_CMD = "npm test"')
+        assert installed == templates()[name]
+
+
+def test_done_check_blocks_even_if_test_output_is_not_text(tmp_path):
+    code = "import sys; sys.stdout.buffer.write(bytes([0xff, 0x81])); raise SystemExit(1)"
+    cmd = quote(sys.executable) + " -c " + quote(code)
+    script = install(tmp_path, "done-check", f"TEST_CMD = {cmd!r}")
+    result = run(script, {"cwd": str(tmp_path)}, tmp_path)
+    assert result.returncode == 2
+    assert "Tests fail" in result.stderr

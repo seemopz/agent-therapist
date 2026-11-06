@@ -28,7 +28,16 @@ def git_repo(tmp_path: Path) -> Path:
     g("config", "user.name", "Test")
     g("config", "user.email", "test@example.com")
     g("config", "commit.gpgsign", "false")
-    (repo / "README.md").write_text("placeholder\n")
+    (repo / "README.md").write_text("placeholder\n", encoding="utf-8")
     g("add", ".")
     g("commit", "-qm", "init")
     return repo
+
+
+def make_symlink(link: Path, target: Path) -> None:
+    try:
+        link.symlink_to(target)
+    except OSError as error:
+        if getattr(error, "winerror", None) == 1314:
+            pytest.skip("Windows symlink tests require Developer Mode or administrator rights")
+        raise

@@ -21,7 +21,7 @@ def current_branch(repo) -> str:
 
 
 def exclude_count(repo) -> int:
-    return (repo / ".git" / "info" / "exclude").read_text().splitlines().count(".claude/sleepless/")
+    return (repo / ".git" / "info" / "exclude").read_text(encoding="utf-8").splitlines().count(".claude/sleepless/")
 
 
 def run_cli(cwd, *args):
@@ -38,7 +38,7 @@ def test_start_creates_branch_state_exclude_and_report(git_repo):
     assert current_branch(git_repo) == "sleepless/2026-09-25"
     assert shift.load(git_repo) == state
     assert exclude_count(git_repo) == 1
-    report = (git_repo / "SLEEPLESS-REPORT.md").read_text()
+    report = (git_repo / "SLEEPLESS-REPORT.md").read_text(encoding="utf-8")
     assert "docs cleanup" in report and "sleepless/2026-09-25" in report
     assert "{{" not in report
     assert state["session_id"] is None
@@ -48,13 +48,38 @@ def test_start_creates_branch_state_exclude_and_report(git_repo):
 
 
 def test_start_overwrites_existing_report(git_repo):
-    (git_repo / "SLEEPLESS-REPORT.md").write_text("old label\n")
+    (git_repo / "SLEEPLESS-REPORT.md").write_text("old label\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(git_repo), "add", "SLEEPLESS-REPORT.md"], check=True)
     subprocess.run(["git", "-C", str(git_repo), "commit", "-qm", "old report"], check=True)
     shift.start(git_repo, "new label", "stop", start_time=T0)
-    report = (git_repo / "SLEEPLESS-REPORT.md").read_text()
+    report = (git_repo / "SLEEPLESS-REPORT.md").read_text(encoding="utf-8")
     assert "new label" in report
     assert "old label" not in report
+
+
+@pytest.mark.parametrize("state", ["untracked", "modified", "staged", "ignored"])
+def test_start_preserves_unsaved_report_without_mutation(git_repo, state):
+    report = git_repo / "SLEEPLESS-REPORT.md"
+    report.write_text("saved\n", encoding="utf-8")
+    if state in ("modified", "staged"):
+        subprocess.run(["git", "-C", str(git_repo), "add", report.name], check=True)
+        subprocess.run(["git", "-C", str(git_repo), "commit", "-qm", "old report"], check=True)
+    if state == "ignored":
+        (git_repo / ".gitignore").write_text(report.name + "\n", encoding="utf-8")
+    report.write_text("unsaved decisions\n", encoding="utf-8")
+    if state == "staged":
+        subprocess.run(["git", "-C", str(git_repo), "add", report.name], check=True)
+    exclude = (git_repo / ".git" / "info" / "exclude").read_bytes()
+
+    with pytest.raises(shift.ShiftError, match="existing SLEEPLESS-REPORT.md"):
+        shift.start(git_repo, "new label", "stop", start_time=T0)
+
+    assert report.read_text(encoding="utf-8") == "unsaved decisions\n"
+    assert current_branch(git_repo) == "main"
+    assert shift.load(git_repo) is None
+    assert (git_repo / ".git" / "info" / "exclude").read_bytes() == exclude
+    assert subprocess.run(["git", "-C", str(git_repo), "branch", "--list", "sleepless/*"],
+                          capture_output=True, text=True).stdout == ""
 
 
 def test_start_refuses_second_shift(git_repo):
@@ -136,7 +161,24 @@ def test_commands_without_shift_fail(git_repo):
 
 def test_fingerprint_changes_with_working_tree(git_repo):
     before = shift.fingerprint(git_repo)
-    (git_repo / "new.txt").write_text("x")
+    (git_repo / "new.txt").write_text("x", encoding="utf-8")
+    assert shift.fingerprint(git_repo) != before
+
+
+@pytest.mark.parametrize("name", ["README.md", "new.txt", " spaced ü.txt"])
+def test_fingerprint_changes_with_repeated_edits(git_repo, name):
+    path = git_repo / name
+    path.write_text("first edit", encoding="utf-8")
+    before = shift.fingerprint(git_repo)
+    path.write_text("second edit", encoding="utf-8")
+    assert shift.fingerprint(git_repo) != before
+
+
+def test_fingerprint_handles_non_utf8_tracked_content(git_repo):
+    path = git_repo / "README.md"
+    path.write_bytes(b"first \xff edit")
+    before = shift.fingerprint(git_repo)
+    path.write_bytes(b"second \xff edit")
     assert shift.fingerprint(git_repo) != before
 
 
@@ -157,7 +199,7 @@ def test_heartbeat_age(git_repo):
 def test_load_raises_on_corrupt_state(git_repo):
     d = git_repo / ".claude" / "sleepless"
     d.mkdir(parents=True)
-    (d / "state.json").write_text("{not json")
+    (d / "state.json").write_text("{not json", encoding="utf-8")
     with pytest.raises(ValueError):
         shift.load(git_repo)
 

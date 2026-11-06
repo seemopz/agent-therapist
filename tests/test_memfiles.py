@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from memfiles import MemFile, discover, instruction_mode
 
 
 def write(p: Path, text: str = "x\n") -> Path:
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(text)
+    p.write_text(text, encoding="utf-8")
     return p
 
 
@@ -57,9 +59,9 @@ def test_no_duplicates_when_global_inside_project(tmp_path):
     assert isinstance(discover([tmp_path], None)[0], MemFile)
 
 
-def _set_mode(g: Path, mode: str) -> None:
+def _set_mode(g: Path, mode: str, plugin_id: str = "agents-md@builtin") -> None:
     write(g / "settings.json", json.dumps(
-        {"pluginConfigs": {"agents-md@builtin": {"options": {"instructionFiles": mode}}}}))
+        {"pluginConfigs": {plugin_id: {"options": {"instructionFiles": mode}}}}))
 
 
 def _agents(root: Path, g: Path | None = None) -> dict:
@@ -105,7 +107,8 @@ def test_subdir_agents_md_blocked_only_by_its_own_claude_md(tmp_path):
     assert _agents(root) == {"a/AGENTS.md": "on demand", "b/AGENTS.md": "not loaded"}
 
 
-def test_instruction_mode_setting(tmp_path):
+@pytest.mark.parametrize("plugin_id", ["cc-plugin-agents-md@builtin", "agents-md@builtin"])
+def test_instruction_mode_setting(tmp_path, plugin_id):
     tmp_path = tmp_path.resolve()
     g = tmp_path / "home-claude"
     root = tmp_path / "proj"
@@ -115,13 +118,21 @@ def test_instruction_mode_setting(tmp_path):
     write(root / ".claude" / "rules" / "style.md")
 
     assert instruction_mode(g) == "claude-md-or-agents-md"
-    _set_mode(g, "claude-md-and-agents-md")
+    _set_mode(g, "claude-md-and-agents-md", plugin_id)
     assert _agents(root, g) == {"AGENTS.md": "always"}
-    _set_mode(g, "claude-md")
+    _set_mode(g, "claude-md", plugin_id)
     assert _agents(root, g) == {"AGENTS.md": "not loaded"}
-    _set_mode(g, "managed-only")
+    _set_mode(g, "managed-only", plugin_id)
     found = {m.path.relative_to(root).as_posix(): m.when for m in discover([root], g)}
     assert found == {"CLAUDE.md": "not loaded", "AGENTS.md": "not loaded",
                      ".claude/rules/api.md": "on demand", ".claude/rules/style.md": "not loaded"}
-    _set_mode(g, "bogus")
+    _set_mode(g, "bogus", plugin_id)
     assert instruction_mode(g) == "claude-md-or-agents-md"
+
+
+def test_current_instruction_mode_takes_precedence(tmp_path):
+    write(tmp_path / "settings.json", json.dumps({"pluginConfigs": {
+        "cc-plugin-agents-md@builtin": {"options": {"instructionFiles": "managed-only"}},
+        "agents-md@builtin": {"options": {"instructionFiles": "claude-md"}},
+    }}))
+    assert instruction_mode(tmp_path) == "managed-only"

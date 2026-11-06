@@ -11,7 +11,11 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from conftest import ROOT
+
+pytestmark = pytest.mark.skipif(os.name == "nt", reason="Sandbox requires POSIX bash and paths")
 
 SANDBOX_SH = ROOT / "tests" / "sandbox.sh"
 
@@ -46,7 +50,7 @@ def test_refuses_existing_dir_without_marker(tmp_path):
     # tmp_path is under /private/var/folders on macOS, i.e. inside the allowed roots — this
     # exercises the marker check specifically, not the allowlist check.
     sentinel = tmp_path / "keep.txt"
-    sentinel.write_text("do not delete")
+    sentinel.write_text("do not delete", encoding="utf-8")
     result = _run(str(tmp_path))
     assert result.returncode == 1, result.stdout + result.stderr
     assert sentinel.is_file()

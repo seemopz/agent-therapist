@@ -190,6 +190,20 @@ def test_prompt_stop_while_paused_starts_wrap_up(shift_repo):
     assert shift.load(shift_repo)["status"] == "ending"
 
 
+@pytest.mark.parametrize("status,prompt", [("active", "stop"), ("paused", "weiter")])
+def test_foreign_prompt_does_not_control_owned_shift(shift_repo, status, prompt):
+    set_state(shift_repo, status=status, session_id="owner")
+    before = shift.load(shift_repo)
+    result = run_hook(shift_repo, "prompt", {"session_id": "other", "prompt": prompt})
+    assert (result.returncode, result.stdout, result.stderr) == (0, "", "")
+    assert shift.load(shift_repo) == before
+
+
+def test_ordinary_prompt_does_not_claim_unowned_shift(shift_repo):
+    run_hook(shift_repo, "prompt", {"session_id": "other", "prompt": "What does this repo do?"})
+    assert shift.load(shift_repo)["session_id"] is None
+
+
 @pytest.mark.parametrize("source", ["startup", "resume"])
 def test_session_start_wakes_with_old_heartbeat(shift_repo, source):
     age_heartbeat(shift_repo)

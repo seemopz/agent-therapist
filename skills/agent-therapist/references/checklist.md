@@ -65,7 +65,7 @@ the preview, or any new file. Propose: remove the line; store the secret in a pa
 (not committed); if the file is in git history, tell the user the secret should be rotated.
 
 ## Check 7 – Checklist from `guide.md`
-<!-- check: guide/1 -->
+<!-- check: guide/2 -->
 
 Go through `references/guide.md` → "Checklist": global under 30 lines · repo under 200, better under 60 ·
 every line passes "Would Claude make mistakes without this line?" · no contradictions · commands exist
@@ -74,9 +74,10 @@ and run · must-rules as hooks · workflows and long knowledge in `docs/` · at 
 CAPS shouting, generic advice ("write clean code").
 
 ## Check 8 – AGENTS.md
-<!-- check: agents/1 -->
+<!-- check: agents/2 -->
 
 Only if the project has an `AGENTS.md`. Facts: `references/guide.md` → "AGENTS.md". scan.py `check=agents`:
+Respect the user setting under `cc-plugin-agents-md@builtin` (or its legacy `agents-md@builtin` ID) when deciding what loads.
 - **AGENTS.md is not loaded** (a CLAUDE.md, `.claude/CLAUDE.md` or `CLAUDE.local.md` takes precedence):
   propose `@AGENTS.md` as the first line of that CLAUDE.md, and removing lines there that duplicate AGENTS.md.
 - **CLAUDE.md tells Claude in words to read AGENTS.md:** propose replacing the sentence with `@AGENTS.md`.

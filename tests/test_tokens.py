@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from conftest import SKILL_DIR
+from conftest import SKILL_DIR, make_symlink
 from memfiles import MemFile
 from tokens import estimate, imports, measure, render
 
@@ -20,10 +20,10 @@ def test_estimate():
 
 def test_measure_totals(tmp_path):
     a = tmp_path / "CLAUDE.md"
-    a.write_text("x" * 35 + "\n" + "y" * 34 + "\n")  # 71 chars -> 21 tokens, 2 lines
+    a.write_text("x" * 35 + "\n" + "y" * 34 + "\n", encoding="utf-8")  # 71 chars -> 21 tokens, 2 lines
     b = tmp_path / "sub" / "CLAUDE.md"
     b.parent.mkdir()
-    b.write_text("z" * 7)
+    b.write_text("z" * 7, encoding="utf-8")
     report = measure([MemFile(a, "always"), MemFile(b, "on demand")])
     assert report["files"][0] == {"path": str(a), "tokens": 21, "lines": 2, "when": "always"}
     assert report["always_total"] == 21
@@ -32,10 +32,10 @@ def test_measure_totals(tmp_path):
 
 def test_measure_skips_unreadable_file(tmp_path, capsys):
     broken = tmp_path / "CLAUDE.md"
-    broken.symlink_to(tmp_path / "does-not-exist.md")
+    make_symlink(broken, tmp_path / "does-not-exist.md")
     ok = tmp_path / "sub" / "CLAUDE.md"
     ok.parent.mkdir()
-    ok.write_text("hello")
+    ok.write_text("hello", encoding="utf-8")
 
     report = measure([MemFile(broken, "always"), MemFile(ok, "always")])
 
@@ -45,13 +45,13 @@ def test_measure_skips_unreadable_file(tmp_path, capsys):
 
 def test_cli_survives_unreadable_file(tmp_path):
     broken = tmp_path / "CLAUDE.md"
-    broken.symlink_to(tmp_path / "does-not-exist.md")
+    make_symlink(broken, tmp_path / "does-not-exist.md")
     sub = tmp_path / "sub"
     sub.mkdir()
-    (sub / "CLAUDE.md").write_text("hello")
+    (sub / "CLAUDE.md").write_text("hello", encoding="utf-8")
 
     res = subprocess.run([sys.executable, str(SCRIPT), "--json", str(tmp_path)],
-                         capture_output=True, text=True)
+                         capture_output=True, text=True, encoding="utf-8")
     assert res.returncode == 0
     data = json.loads(res.stdout)
     assert any(f["path"].endswith(str(Path("sub") / "CLAUDE.md")) for f in data["files"])
@@ -70,18 +70,18 @@ def test_render_with_baseline_shows_delta_and_removed(tmp_path):
 
 
 def test_cli_json(tmp_path):
-    (tmp_path / "CLAUDE.md").write_text("hello world\n")
+    (tmp_path / "CLAUDE.md").write_text("hello world\n", encoding="utf-8")
     res = subprocess.run([sys.executable, str(SCRIPT), "--json", str(tmp_path)],
-                         capture_output=True, text=True, check=True)
+                         capture_output=True, text=True, encoding="utf-8", check=True)
     data = json.loads(res.stdout)
     assert data["always_total"] == estimate("hello world\n")
 
 
 def test_imports_resolve_relative_to_importing_file_and_skip_code(tmp_path):
     (tmp_path / "docs").mkdir()
-    (tmp_path / "docs" / "a.md").write_text("a")
-    (tmp_path / "docs" / "b.md").write_text("b")
-    (tmp_path / "AGENTS.md").write_text("agents")
+    (tmp_path / "docs" / "a.md").write_text("a", encoding="utf-8")
+    (tmp_path / "docs" / "b.md").write_text("b", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text("agents", encoding="utf-8")
     src = tmp_path / "docs" / "x.md"
     text = ("@a.md and @../AGENTS.md.\n"
             "mail me at user@example.com, missing @nope.md\n"
@@ -92,9 +92,9 @@ def test_imports_resolve_relative_to_importing_file_and_skip_code(tmp_path):
 def test_measure_counts_imports_as_always_up_to_four_hops(tmp_path):
     for i in range(1, 7):
         nxt = f"@f{i + 1}.md" if i < 6 else ""
-        (tmp_path / f"f{i}.md").write_text(f"file {i} {nxt}\n")
+        (tmp_path / f"f{i}.md").write_text(f"file {i} {nxt}\n", encoding="utf-8")
     claude = tmp_path / "CLAUDE.md"
-    claude.write_text("@f1.md\n@f1.md\n")  # imported twice, counted once
+    claude.write_text("@f1.md\n@f1.md\n", encoding="utf-8")  # imported twice, counted once
 
     report = measure([MemFile(claude, "always")])
 
@@ -107,14 +107,24 @@ def test_measure_counts_imports_as_always_up_to_four_hops(tmp_path):
 
 def test_import_turns_unloaded_agents_md_into_always_and_symlink_counts_once(tmp_path):
     agents = tmp_path / "AGENTS.md"
-    agents.write_text("shared instructions\n")
+    agents.write_text("shared instructions\n", encoding="utf-8")
     claude = tmp_path / "CLAUDE.md"
-    claude.write_text("@AGENTS.md\nclaude only\n")
+    claude.write_text("@AGENTS.md\nclaude only\n", encoding="utf-8")
     report = measure([MemFile(agents, "not loaded"), MemFile(claude, "always")])
     assert [r["when"] for r in report["files"]] == ["always", "always"]
     assert report["always_total"] == estimate("shared instructions\n") + estimate("@AGENTS.md\nclaude only\n")
 
     claude.unlink()
-    claude.symlink_to(agents)
+    make_symlink(claude, agents)
     report = measure([MemFile(agents, "always"), MemFile(claude, "always")])
     assert report["always_total"] == estimate("shared instructions\n")
+
+
+def test_cli_table_uses_utf8_without_requiring_utf8_mode(tmp_path):
+    import os
+
+    (tmp_path / "CLAUDE.md").write_text("hello world", encoding="utf-8")
+    result = subprocess.run([sys.executable, str(SCRIPT), str(tmp_path)],
+                            capture_output=True, encoding="utf-8", check=True,
+                            env={**os.environ, "PYTHONUTF8": "0"})
+    assert "always loaded: \u2248" in result.stdout

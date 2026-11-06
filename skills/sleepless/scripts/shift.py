@@ -38,7 +38,8 @@ def now() -> dt.datetime:
 
 
 def _run_git(root, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True)
+    return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True,
+                          encoding="utf-8")
 
 
 def git(root, *args: str) -> str:
@@ -65,7 +66,7 @@ def load(root) -> Optional[dict]:
     p = state_dir(root) / "state.json"
     if not p.is_file():
         return None
-    state = json.loads(p.read_text())
+    state = json.loads(p.read_text(encoding="utf-8"))
     if not isinstance(state, dict):
         raise ValueError("state.json is not an object")
     return state
@@ -75,7 +76,7 @@ def save(root, state: dict) -> None:
     d = state_dir(root)
     d.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=str(d), suffix=".tmp")
-    with os.fdopen(fd, "w") as f:
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=2)
     os.replace(tmp, str(d / "state.json"))
 
@@ -117,8 +118,16 @@ def deadline_passed(state: dict, at_time: Optional[dt.datetime] = None) -> bool:
 def fingerprint(root) -> str:
     """Changes whenever HEAD or the working tree changes."""
     head = _run_git(root, "rev-parse", "HEAD").stdout
-    porcelain = _run_git(root, "status", "--porcelain").stdout
-    return hashlib.sha1((head + porcelain).encode()).hexdigest()
+    porcelain = _run_git(root, "status", "--porcelain", "--untracked-files=all").stdout
+    diff = subprocess.run(["git", "-C", str(root), "diff", "--no-ext-diff", "--no-textconv",
+                           "--binary", "HEAD"], capture_output=True, check=True).stdout
+    digest = hashlib.sha256((head + porcelain).encode("utf-8") + diff)
+    for name in _run_git(root, "ls-files", "--others", "--exclude-standard", "-z").stdout.split("\0"):
+        if name:
+            path = Path(root) / name
+            content = os.readlink(path).encode("utf-8") if path.is_symlink() else path.read_bytes()
+            digest.update(name.encode("utf-8") + b"\0" + content + b"\0")
+    return digest.hexdigest()
 
 
 def _ref_exists(root, ref: str) -> bool:
@@ -139,12 +148,12 @@ def add_exclude(root) -> None:
     if not p.is_absolute():
         p = Path(root) / p
     p.parent.mkdir(parents=True, exist_ok=True)
-    text = p.read_text() if p.exists() else ""
+    text = p.read_text(encoding="utf-8") if p.exists() else ""
     if EXCLUDE_LINE in text.splitlines():
         return
     if text and not text.endswith("\n"):
         text += "\n"
-    p.write_text(text + EXCLUDE_LINE + "\n")
+    p.write_text(text + EXCLUDE_LINE + "\n", encoding="utf-8")
 
 
 def _end_text(kind: str, deadline: Optional[dt.datetime]) -> str:
@@ -164,6 +173,9 @@ def start(root, label: str, end_kind: str, at: Optional[str] = None, hours: Opti
     unknown = [s for s in sources if s not in SOURCES]
     if unknown:
         raise ShiftError("unknown sources: %s (known: %s)" % (", ".join(unknown), ", ".join(SOURCES)))
+    report = Path(root) / REPORT
+    if report.exists() and git(root, "status", "--porcelain", "--ignored", "--", REPORT):
+        raise ShiftError("save or commit the existing SLEEPLESS-REPORT.md before starting a shift")
     started = start_time or now()
     deadline = compute_deadline(started, end_kind, at, hours)
     base = git(root, "rev-parse", "--abbrev-ref", "HEAD")
@@ -187,13 +199,12 @@ def start(root, label: str, end_kind: str, at: Optional[str] = None, hours: Opti
     }
     save(root, state)
     touch_heartbeat(root)
-    report = Path(root) / REPORT
-    text = TEMPLATE.read_text()
+    text = TEMPLATE.read_text(encoding="utf-8")
     for key, value in (("label", label), ("branch", branch), ("base", base),
                        ("started", started.strftime("%Y-%m-%d %H:%M")),
                        ("end", _end_text(end_kind, deadline))):
         text = text.replace("{{%s}}" % key, value)
-    report.write_text(text)
+    report.write_text(text, encoding="utf-8")
     return state
 
 
