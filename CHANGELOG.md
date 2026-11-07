@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/seemopz/agent-therapist/compare/v0.3.0...v0.4.0) (2026-11-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **sleepless:** no `sleepless/<date>` branch and no `SLEEPLESS-REPORT.md` in the repo root anymore; the shift ends with one PR per task.
+
+### Features
+
+* **agent-therapist:** start new sessions directly when handing off ([18b9214](https://github.com/seemopz/agent-therapist/commit/18b921406246a92306380867e27b1e265900da51))
+* run sleepless tasks and session hand-offs as real sessions ([3f02402](https://github.com/seemopz/agent-therapist/commit/3f024023b422972fa2cfaf8f83b5c8708a6a4a43))
+* **sleepless:** run each task in its own session, branch and PR ([28f08e9](https://github.com/seemopz/agent-therapist/commit/28f08e93a72f275fdab2fd3a5940231c7b6c5f76))
+
+
+### Bug Fixes
+
+* **tests:** pass a POSIX path in the worker delete guard test ([a012580](https://github.com/seemopz/agent-therapist/commit/a0125808b63790bb0d2e638e523b929ad467ea8a))
+
 ## [0.3.0](https://github.com/seemopz/agent-therapist/compare/v0.2.0...v0.3.0) (2026-11-06)
 
 
