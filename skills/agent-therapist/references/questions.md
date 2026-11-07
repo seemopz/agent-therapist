@@ -45,8 +45,17 @@ Block 3 in a project: ask only whether the project deviates from the global git 
 ## Block 0 – Token hygiene → `<global>/rules/token.md`
 
 1. **When to suggest a new session:** on topic change (Recommended) / after every task / never
-2. **Hand-off text:** include a ready-to-paste summary when suggesting a new session? yes (Recommended) / no
+2. **Hand-off:** how to hand over when suggesting a new session: start it with a written brief where possible, else a ready-to-paste prompt (Recommended – the new session gets a fresh context without copy-paste) / ready-to-paste prompt only / none
 3. **Subagents:** hand big searches to subagents without asking? yes (Recommended) / ask first
+
+Rule text for answer 2 "start it" (write it in English, adapt to answer 1):
+
+```markdown
+- When suggesting a new session, offer to start it with a brief: repo path, branch, task, relevant files, decisions made, what doesn't matter.
+  - Desktop app: propose it with the session tool (`start_session`, load it via ToolSearch if deferred) – the user starts it from the card.
+  - CLI: after the user agrees, `claude --bg --name <topic> "<brief>"`.
+  - Otherwise: the brief as a ready-to-paste blockquote.
+```
 
 ## Block 1 – How you work → `<global>/CLAUDE.md`
 
