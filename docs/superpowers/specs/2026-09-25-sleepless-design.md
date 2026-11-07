@@ -1,13 +1,17 @@
 # Sleepless architecture
 
-Claude's sleepless workflow runs on a dedicated branch, records decisions in
-`SLEEPLESS-REPORT.md`, and ends with a pull request. It never merges automatically.
+Claude's sleepless workflow gives every task its own branch `type/topic` and its own pull request
+against the shift's base branch, and records decisions in an uncommitted report at
+`.claude/sleepless/reports/<date>-<label>.md`. It never merges automatically. Where available, a
+coordinator session starts one worker session per task in its own worktree (desktop
+`start_session` or `claude --bg`, at most 3 at a time); otherwise it switches branches itself.
 The Codex version is instruction-only; it has no Claude hooks or automatic recovery.
 
 ## Entry points
 
 - `skills/sleepless/SKILL.md`: task selection, work loop, and wrap-up instructions.
-- `scripts/shift.py`: start, status, end, finish, deadlines, and persisted state.
+- `scripts/shift.py`: start, status, end, finish, branch, join, done, wait, workers, deadlines,
+  and persisted state.
 - `hooks/hook.py`: Stop, UserPromptSubmit, SessionStart, StopFailure, and PreToolUse.
 - `hooks/guard.py`: best-effort command checks during a shift; this is not a sandbox.
 
@@ -26,10 +30,18 @@ State lives in `<git-root>/.claude/sleepless/`, excluded through Git's info/excl
 Other sessions are ignored while the owner's heartbeat is fresh. Ordinary prompts
 must not claim a shift. Explicit resume may take over a paused shift.
 
-The idle fingerprint includes HEAD, tracked diffs, and untracked file contents.
+Workers are sessions in linked worktrees; hooks find the shift through the main checkout
+(`git rev-parse --git-common-dir`). For them only PreToolUse acts: the guard applies with the
+worktree as the repo root, and each call refreshes `workers/<slug>.heartbeat`. Workers record
+status and PR in `workers/<slug>.json` via `join` and `done`. The coordinator's Stop hook lets the
+turn end only while a background `shift.py wait` runs; `wait` returns when a worker changes
+status or goes stale. `finish` keeps `reports/` and deletes the rest.
+
+The idle fingerprint includes HEAD, all refs, tracked diffs, untracked file contents (skipping
+nested worktrees), the report, and worker files.
 Repeated edits count as progress. Stop attempts without progress eventually pause
-instead of continuing indefinitely. An unsaved existing report blocks a new shift
-before branch or state changes; committed reports remain recoverable through Git.
+instead of continuing indefinitely. `start` does not switch branches; each new report gets
+a free file name, so earlier reports are never overwritten.
 
 ## Recovery and limits
 

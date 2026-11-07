@@ -11,6 +11,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "scripts"))
@@ -59,29 +60,44 @@ def label(state: dict) -> str:
 def continue_reason(state: dict) -> str:
     return ("Sleepless shift active (%s). Do not end the turn. Follow the sleepless skill: take the "
             "next item - the chosen task sources first, then quality work. A blocker goes on the "
-            "question list in SLEEPLESS-REPORT.md and you switch items. Stop attempts without repo "
-            "change: %d/%d." % (label(state), state["idle"]["streak"], idle_limit()))
+            "question list in %s and you switch items. Stop attempts without repo change: %d/%d."
+            % (label(state), shift.report_name(state), state["idle"]["streak"], idle_limit()))
+
+
+def wait_reason(state: dict) -> str:
+    return ("Sleepless shift active (%s) and task workers are still running. Run `shift.py wait` "
+            "(see the sleepless skill) with run_in_background so you wake up when one finishes, "
+            "then end the turn. Stop attempts without repo change: %d/%d."
+            % (label(state), state["idle"]["streak"], idle_limit()))
 
 
 def pause_reason(state: dict) -> str:
-    return ("Sleepless: no repo change across %d stop attempts - the shift pauses. Push `%s`, send a "
-            "PushNotification that the shift is paused and why, then end the turn. The user resumes "
-            "it with \"weiter\"." % (state["idle"]["streak"], state["branch"]))
+    return ("Sleepless: no repo change across %d stop attempts - the shift pauses. Push any "
+            "unpushed task branch, send a PushNotification that the shift is paused and why, then "
+            "end the turn. The user resumes it with \"weiter\"." % state["idle"]["streak"])
 
 
 def wake_message(state: dict) -> str:
-    return ("A sleepless shift is active on `%s` (%s). Invoke the sleepless skill, read "
-            "SLEEPLESS-REPORT.md, check out the shift branch if needed, and continue with the next "
-            "item." % (state["branch"], label(state)))
+    return ("A sleepless shift is active (%s). Invoke the sleepless skill, read %s and "
+            "`shift.py workers`, and continue with the next item." % (label(state),
+                                                                       shift.report_name(state)))
+
+
+def _same(a, b) -> bool:
+    return Path(a).resolve() == Path(b).resolve()
 
 
 def find_shift(data: dict):
-    """(root, state) of the active shift for this hook call, or None.
+    """(root, state, worktree) of the active shift for this hook call, or None.
 
-    Looks in the git top level of the input cwd first, then in CLAUDE_PROJECT_DIR, so a subagent
-    in a git worktree still sees the shift of the main checkout.
+    Looks in the git top level of the input cwd, the main checkout of that repo, then
+    CLAUDE_PROJECT_DIR. worktree is the caller's linked worktree of the shift repo when the caller
+    is a task worker, else None.
     """
-    for base in (data.get("cwd"), os.environ.get("CLAUDE_PROJECT_DIR")):
+    cwd = data.get("cwd")
+    top = shift.repo_root(cwd) if cwd else None
+    main = shift.main_checkout(top) if top else None
+    for base in (top, main, os.environ.get("CLAUDE_PROJECT_DIR")):
         if not base:
             continue
         root = shift.repo_root(base)
@@ -89,7 +105,8 @@ def find_shift(data: dict):
             continue
         state = shift.load(root)
         if state is not None:
-            return root, state
+            worker = main is not None and _same(main, root) and not _same(top, root)
+            return root, state, top if worker else None
     return None
 
 
@@ -130,6 +147,7 @@ def on_stop(root, state: dict, data: dict) -> int:
         shift.save(root, state)
         emit({"decision": "block", "reason": shift.wrap_up(state)})
         return 0
+    waiting = any(w.get("status") == "running" for w in shift.workers(root))
     fp = shift.fingerprint(root)
     idle = state["idle"]
     idle["streak"] = idle["streak"] + 1 if fp == idle["fingerprint"] else 1
@@ -140,7 +158,7 @@ def on_stop(root, state: dict, data: dict) -> int:
         emit({"decision": "block", "reason": pause_reason(state)})
         return 0
     shift.save(root, state)
-    emit({"decision": "block", "reason": continue_reason(state)})
+    emit({"decision": "block", "reason": wait_reason(state) if waiting else continue_reason(state)})
     return 0
 
 
@@ -190,10 +208,7 @@ def on_pre_tool_use(root, state: dict, data: dict) -> int:
     if not check_session(root, state, data):
         return 0
     shift.touch_heartbeat(root)
-    tool_input = data.get("tool_input")
-    reason = guard.check(str(data.get("tool_name", "")),
-                         tool_input if isinstance(tool_input, dict) else {},
-                         str(data.get("cwd") or root), str(root))
+    reason = guard_reason(data, root)
     hso = {"hookEventName": "PreToolUse"}
     if state["status"] == "active" and shift.deadline_passed(state):
         state["status"] = "ending"
@@ -204,6 +219,25 @@ def on_pre_tool_use(root, state: dict, data: dict) -> int:
         hso["permissionDecisionReason"] = "sleepless: " + reason
     if len(hso) > 1:
         emit({"hookSpecificOutput": hso})
+    return 0
+
+
+def guard_reason(data: dict, root) -> Optional[str]:
+    tool_input = data.get("tool_input")
+    return guard.check(str(data.get("tool_name", "")),
+                       tool_input if isinstance(tool_input, dict) else {},
+                       str(data.get("cwd") or root), str(root))
+
+
+def on_worker_pre_tool_use(root, data: dict, worktree) -> int:
+    """A task worker: guard rules inside its own worktree, heartbeat for its task branch."""
+    branch = shift._run_git(worktree, "branch", "--show-current").stdout.strip()
+    if branch and shift.worker_path(root, branch, ".json").is_file():
+        shift.worker_path(root, branch, ".heartbeat").touch()
+    reason = guard_reason(data, worktree)
+    if reason:
+        emit({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                                     "permissionDecisionReason": "sleepless: " + reason}})
     return 0
 
 
@@ -238,8 +272,10 @@ def main(argv) -> int:
         return 0
     if found is None:
         return 0
-    root, state = found
+    root, state, worktree = found
     try:
+        if worktree is not None:  # workers may end their turn; the coordinator follows up
+            return on_worker_pre_tool_use(root, data, worktree) if handler is on_pre_tool_use else 0
         return handler(root, state, data)
     except Exception as e:  # noqa: BLE001 - any other failure must not break the session
         emit({"systemMessage": "sleepless: hook error (%s: %s); the sleepless hooks are inactive "

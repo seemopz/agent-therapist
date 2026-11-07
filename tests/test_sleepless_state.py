@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 import subprocess
 import sys
+import threading
+import time
 
 import pytest
 
@@ -28,58 +31,51 @@ def run_cli(cwd, *args):
     return subprocess.run([sys.executable, str(SHIFT), *args], cwd=cwd, capture_output=True, text=True)
 
 
-def test_start_creates_branch_state_exclude_and_report(git_repo):
+def git(repo, *args):
+    return subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True,
+                          text=True).stdout.strip()
+
+
+def add_worktree(repo, name="wt"):
+    wt = repo / ".claude" / "worktrees" / name
+    git(repo, "worktree", "add", "-q", "--detach", str(wt))
+    return wt
+
+
+def test_start_keeps_branch_and_writes_state_exclude_and_report(git_repo):
     state = shift.start(git_repo, "docs cleanup", "stop", sources=["todo"], start_time=T0)
-    assert state["branch"] == "sleepless/2026-09-25"
+    assert "branch" not in state
+    assert state["version"] == 2
     assert state["base"] == "main"
+    assert state["report"] == ".claude/sleepless/reports/2026-09-25-docs-cleanup.md"
     assert state["status"] == "active"
     assert state["end"] == {"kind": "stop", "at": None}
     assert state["idle"] == {"fingerprint": "", "streak": 0}
-    assert current_branch(git_repo) == "sleepless/2026-09-25"
+    assert current_branch(git_repo) == "main"
     assert shift.load(git_repo) == state
     assert exclude_count(git_repo) == 1
-    report = (git_repo / "SLEEPLESS-REPORT.md").read_text(encoding="utf-8")
-    assert "docs cleanup" in report and "sleepless/2026-09-25" in report
+    report = (git_repo / state["report"]).read_text(encoding="utf-8")
+    assert "docs cleanup" in report and "Base `main`" in report
     assert "{{" not in report
     assert state["session_id"] is None
     porcelain = subprocess.run(["git", "-C", str(git_repo), "status", "--porcelain"],
                                capture_output=True, text=True).stdout
-    assert ".claude" not in porcelain
+    assert porcelain == ""
 
 
-def test_start_overwrites_existing_report(git_repo):
-    (git_repo / "SLEEPLESS-REPORT.md").write_text("old label\n", encoding="utf-8")
-    subprocess.run(["git", "-C", str(git_repo), "add", "SLEEPLESS-REPORT.md"], check=True)
-    subprocess.run(["git", "-C", str(git_repo), "commit", "-qm", "old report"], check=True)
-    shift.start(git_repo, "new label", "stop", start_time=T0)
-    report = (git_repo / "SLEEPLESS-REPORT.md").read_text(encoding="utf-8")
-    assert "new label" in report
-    assert "old label" not in report
+def test_start_report_name_gets_suffix_when_taken(git_repo):
+    reports = git_repo / ".claude" / "sleepless" / "reports"
+    reports.mkdir(parents=True)
+    (reports / "2026-09-25-x.md").write_text("old\n", encoding="utf-8")
+    state = shift.start(git_repo, "X!", "stop", start_time=T0)
+    assert state["report"].endswith("/2026-09-25-x-2.md")
+    assert (reports / "2026-09-25-x.md").read_text(encoding="utf-8") == "old\n"
 
 
-@pytest.mark.parametrize("state", ["untracked", "modified", "staged", "ignored"])
-def test_start_preserves_unsaved_report_without_mutation(git_repo, state):
-    report = git_repo / "SLEEPLESS-REPORT.md"
-    report.write_text("saved\n", encoding="utf-8")
-    if state in ("modified", "staged"):
-        subprocess.run(["git", "-C", str(git_repo), "add", report.name], check=True)
-        subprocess.run(["git", "-C", str(git_repo), "commit", "-qm", "old report"], check=True)
-    if state == "ignored":
-        (git_repo / ".gitignore").write_text(report.name + "\n", encoding="utf-8")
-    report.write_text("unsaved decisions\n", encoding="utf-8")
-    if state == "staged":
-        subprocess.run(["git", "-C", str(git_repo), "add", report.name], check=True)
-    exclude = (git_repo / ".git" / "info" / "exclude").read_bytes()
-
-    with pytest.raises(shift.ShiftError, match="existing SLEEPLESS-REPORT.md"):
-        shift.start(git_repo, "new label", "stop", start_time=T0)
-
-    assert report.read_text(encoding="utf-8") == "unsaved decisions\n"
-    assert current_branch(git_repo) == "main"
-    assert shift.load(git_repo) is None
-    assert (git_repo / ".git" / "info" / "exclude").read_bytes() == exclude
-    assert subprocess.run(["git", "-C", str(git_repo), "branch", "--list", "sleepless/*"],
-                          capture_output=True, text=True).stdout == ""
+def test_start_refuses_detached_head(git_repo):
+    git(git_repo, "switch", "-q", "--detach")
+    with pytest.raises(shift.ShiftError, match="detached"):
+        shift.start(git_repo, "a", "stop", start_time=T0)
 
 
 def test_start_refuses_second_shift(git_repo):
@@ -94,11 +90,125 @@ def test_start_rejects_unknown_source_before_touching_git(git_repo):
     assert current_branch(git_repo) == "main"
 
 
-def test_branch_suffix_when_local_or_remote_branch_exists(git_repo):
-    subprocess.run(["git", "-C", str(git_repo), "branch", "sleepless/2026-09-25"], check=True)
-    subprocess.run(["git", "-C", str(git_repo), "update-ref",
-                    "refs/remotes/origin/sleepless/2026-09-25-2", "HEAD"], check=True)
-    assert shift.branch_name(git_repo, "2026-09-25") == "sleepless/2026-09-25-3"
+def test_branch_name_slug_and_suffix_when_local_or_remote_branch_exists(git_repo):
+    assert shift.branch_name(git_repo, "fix", "  Login Crash, Safari!  ") == "fix/login-crash-safari"
+    assert len(shift.branch_name(git_repo, "docs", "a" * 80)) == len("docs/") + 40
+    git(git_repo, "branch", "feat/dark-mode")
+    git(git_repo, "update-ref", "refs/remotes/origin/feat/dark-mode-2", "HEAD")
+    assert shift.branch_name(git_repo, "feat", "Dark mode") == "feat/dark-mode-3"
+
+
+@pytest.mark.parametrize("kind,topic,match", [("feature", "x", "unknown branch type"),
+                                              ("fix", "!!", "letters or digits")])
+def test_branch_name_rejects_bad_input(git_repo, kind, topic, match):
+    with pytest.raises(shift.ShiftError, match=match):
+        shift.branch_name(git_repo, kind, topic)
+
+
+def test_join_from_worktree_switches_branch_and_registers_worker(git_repo):
+    shift.start(git_repo, "a", "stop", start_time=T0)
+    wt = add_worktree(git_repo)
+    r = run_cli(wt, "join", "fix/login")
+    assert r.returncode == 0, r.stderr
+    assert current_branch(wt) == "fix/login"
+    assert current_branch(git_repo) == "main"
+    worker = json.loads((git_repo / ".claude/sleepless/workers/fix--login.json").read_text())
+    assert worker["branch"] == "fix/login" and worker["status"] == "running"
+    assert worker["pr"] is None and worker["note"] == ""
+    assert not (wt / ".claude" / "sleepless").exists()
+    assert run_cli(wt, "join", "fix/login").returncode == 0  # already on the branch: no-op
+
+
+def test_join_from_ref(git_repo):
+    shift.start(git_repo, "a", "stop", start_time=T0)
+    git(git_repo, "branch", "feat/base-task")
+    git(git_repo, "commit", "-q", "--allow-empty", "-m", "later on main")
+    wt = add_worktree(git_repo)
+    shift.join(git_repo, wt, "feat/follow-up", "feat/base-task")
+    assert git(wt, "rev-parse", "HEAD") == git(git_repo, "rev-parse", "feat/base-task")
+
+
+def test_join_switches_to_an_existing_branch_on_restart(git_repo):
+    shift.start(git_repo, "a", "stop", start_time=T0)
+    git(git_repo, "branch", "fix/x")
+    git(git_repo, "commit", "-q", "--allow-empty", "-m", "later on main")
+    wt = add_worktree(git_repo)
+    shift.join(git_repo, wt, "fix/x")
+    assert current_branch(wt) == "fix/x"
+    assert git(wt, "rev-parse", "HEAD") != git(git_repo, "rev-parse", "main")
+
+
+def test_start_refuses_linked_worktree(git_repo):
+    wt = add_worktree(git_repo)
+    git(wt, "switch", "-q", "-c", "side")
+    with pytest.raises(shift.ShiftError, match="main checkout"):
+        shift.start(wt, "a", "stop", start_time=T0)
+    assert shift.load(wt) is None
+
+
+def test_join_refuses_main_checkout(git_repo):
+    shift.start(git_repo, "a", "stop", start_time=T0)
+    with pytest.raises(shift.ShiftError, match="own git worktree"):
+        shift.join(git_repo, git_repo, "fix/x")
+    assert current_branch(git_repo) == "main"
+
+
+def test_done_updates_worker(git_repo):
+    shift.start(git_repo, "a", "stop", start_time=T0)
+    shift.join(git_repo, add_worktree(git_repo), "fix/x")
+    r = run_cli(git_repo, "done", "fix/x", "--status", "done", "--pr", "https://example.com/pr/1")
+    assert r.returncode == 0, r.stderr
+    [worker] = json.loads(run_cli(git_repo, "workers").stdout)
+    assert (worker["status"], worker["pr"], worker["note"]) == ("done", "https://example.com/pr/1", "")
+    shift.done(git_repo, "fix/x", "blocked", note="needs a decision")
+    assert shift.workers(git_repo)[0]["note"] == "needs a decision"
+    with pytest.raises(shift.ShiftError, match="no worker"):
+        shift.done(git_repo, "fix/other", "done")
+
+
+def test_wait_returns_immediately_without_running_workers_and_touches_heartbeat(git_repo):
+    shift.start(git_repo, "a", "stop", start_time=T0)
+    old = time.time() - 3600
+    os.utime(str(git_repo / ".claude" / "sleepless" / "heartbeat"), (old, old))
+    r = run_cli(git_repo, "wait", "--timeout-minutes", "5")
+    assert (r.returncode, json.loads(r.stdout)) == (0, {"reason": "none_running", "workers": []})
+    assert shift.heartbeat_age(git_repo) < 5
+
+
+def test_wait_returns_when_a_running_worker_changes_status(git_repo, monkeypatch):
+    monkeypatch.setenv("SLEEPLESS_POLL_SECONDS", "0.05")
+    shift.start(git_repo, "a", "stop", start_time=T0)
+    shift.join(git_repo, add_worktree(git_repo), "fix/x")
+    result = []
+    t = threading.Thread(target=lambda: result.append(shift.wait(git_repo, timeout_minutes=1)))
+    t.start()
+    time.sleep(0.3)
+    assert t.is_alive()
+    shift.done(git_repo, "fix/x", "done")
+    t.join(5)
+    assert result[0]["reason"] == "status" and result[0]["workers"][0]["status"] == "done"
+
+
+def test_wait_counts_only_workers_that_go_stale_during_the_wait(git_repo, monkeypatch):
+    monkeypatch.setenv("SLEEPLESS_POLL_SECONDS", "0.05")
+    shift.start(git_repo, "a", "stop", start_time=T0)
+    shift.join(git_repo, add_worktree(git_repo), "fix/x")
+    assert shift.wait(git_repo, timeout_minutes=0.005)["reason"] == "timeout"
+    monkeypatch.setattr(shift, "WORKER_STALE_SECONDS", 0.3)
+    shift.worker_path(git_repo, "fix/x", ".heartbeat").touch()
+    assert shift.wait(git_repo, timeout_minutes=1)["reason"] == "stale"
+    assert shift.wait(git_repo, timeout_minutes=0.005)["reason"] == "timeout"  # stale at start
+
+
+@pytest.mark.parametrize("changes,reason", [
+    ({"end": {"kind": "hours", "at": "2000-01-01T00:00:00+00:00"}}, "deadline"),
+    ({"status": "ending"}, "shift_inactive"),
+])
+def test_wait_returns_on_deadline_or_inactive_shift(git_repo, changes, reason):
+    shift.start(git_repo, "a", "stop", start_time=T0)
+    shift.join(git_repo, add_worktree(git_repo), "fix/x")
+    shift.save(git_repo, dict(shift.load(git_repo), **changes))
+    assert shift.wait(git_repo, timeout_minutes=1)["reason"] == reason
 
 
 def test_exclude_line_added_once(git_repo):
@@ -143,14 +253,20 @@ def test_deadline_passed():
     assert not shift.deadline_passed({"end": {"kind": "stop", "at": None}}, T0)
 
 
-def test_end_then_finish_removes_state(git_repo):
-    shift.start(git_repo, "a", "stop", start_time=T0)
+def test_end_then_finish_removes_state_but_keeps_reports(git_repo):
+    state = shift.start(git_repo, "a", "stop", start_time=T0)
+    shift.join(git_repo, add_worktree(git_repo), "fix/x")
     with pytest.raises(shift.ShiftError, match="end"):
         shift.finish(git_repo)
     assert shift.end(git_repo)["status"] == "ending"
+    with pytest.raises(shift.ShiftError, match="still running: fix/x"):
+        shift.finish(git_repo)
+    shift.done(git_repo, "fix/x", "blocked")
     shift.finish(git_repo)
     assert shift.load(git_repo) is None
-    assert not (git_repo / ".claude" / "sleepless").exists()
+    d = git_repo / ".claude" / "sleepless"
+    assert sorted(p.name for p in d.iterdir()) == ["reports"]
+    assert (git_repo / state["report"]).is_file()
 
 
 def test_commands_without_shift_fail(git_repo):
@@ -182,6 +298,35 @@ def test_fingerprint_handles_non_utf8_tracked_content(git_repo):
     assert shift.fingerprint(git_repo) != before
 
 
+def test_fingerprint_changes_when_a_ref_moves(git_repo):
+    before = shift.fingerprint(git_repo)
+    git(git_repo, "branch", "fix/x")
+    after_branch = shift.fingerprint(git_repo)
+    assert after_branch != before
+    wt = add_worktree(git_repo)
+    git(wt, "switch", "-q", "fix/x")
+    git(wt, "commit", "-q", "--allow-empty", "-m", "worker commit")
+    assert shift.fingerprint(git_repo) != after_branch
+
+
+def test_fingerprint_skips_untracked_nested_worktree(git_repo):
+    add_worktree(git_repo)
+    before = shift.fingerprint(git_repo)
+    assert shift.fingerprint(git_repo) == before
+
+
+def test_fingerprint_changes_with_report_and_worker_files(git_repo):
+    state = shift.start(git_repo, "a", "stop", start_time=T0)
+    before = shift.fingerprint(git_repo)
+    (git_repo / state["report"]).write_text("progress", encoding="utf-8")
+    after_report = shift.fingerprint(git_repo)
+    assert after_report != before
+    shift.join(git_repo, add_worktree(git_repo), "fix/x")
+    after_join = shift.fingerprint(git_repo)
+    shift.done(git_repo, "fix/x", "done")
+    assert len({after_report, after_join, shift.fingerprint(git_repo)}) == 3
+
+
 def test_fingerprint_ignores_state_dir(git_repo):
     shift.start(git_repo, "a", "stop", start_time=T0)
     before = shift.fingerprint(git_repo)
@@ -204,10 +349,25 @@ def test_load_raises_on_corrupt_state(git_repo):
         shift.load(git_repo)
 
 
-def test_wrap_up_names_branch_base_and_pr():
-    text = shift.wrap_up({"label": "x", "branch": "sleepless/2026-09-25", "base": "main"})
-    assert "gh pr create --base main --head sleepless/2026-09-25" in text
+def test_wrap_up_names_base_report_and_steps():
+    text = shift.wrap_up({"label": "x", "base": "main", "report": ".claude/sleepless/reports/r.md"})
+    assert "against `main`" in text and "`.claude/sleepless/reports/r.md`" in text
+    assert "shift.py wait" in text and "shift.py finish" in text
     assert "Never merge" in text and "PushNotification" in text
+
+
+def test_version_1_state_still_loads_for_status_end_finish(git_repo):
+    d = git_repo / ".claude" / "sleepless"
+    d.mkdir(parents=True)
+    (d / "state.json").write_text(json.dumps({
+        "version": 1, "label": "old", "branch": "sleepless/2026-09-25", "base": "main",
+        "started": T0.isoformat(), "end": {"kind": "stop", "at": None}, "sources": [],
+        "status": "active", "idle": {"fingerprint": "", "streak": 0}, "last_stop": None,
+        "session_id": None}), encoding="utf-8")
+    assert shift.status(git_repo)["report"] is None
+    assert "the shift report" in shift.wrap_up(shift.end(git_repo))
+    shift.finish(git_repo)
+    assert shift.load(git_repo) is None
 
 
 def test_cli_round_trip(git_repo):
@@ -219,7 +379,7 @@ def test_cli_round_trip(git_repo):
     assert s["deadline_passed"] is False
     assert s["heartbeat_minutes"] is not None
     r = run_cli(git_repo, "end")
-    assert r.returncode == 0 and "gh pr create --base main" in r.stdout
+    assert r.returncode == 0 and "against `main`" in r.stdout
     assert run_cli(git_repo, "finish").returncode == 0
     r = run_cli(git_repo, "status")
     assert r.returncode == 1 and "no active shift" in r.stderr

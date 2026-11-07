@@ -101,7 +101,7 @@ def test_stop_blocks_with_non_running_background_task(shift_repo):
 def test_stop_after_deadline_starts_wrap_up(shift_repo):
     set_state(shift_repo, end={"kind": "hours", "at": "2000-01-01T00:00:00+00:00"})
     o = out(run_hook(shift_repo, "stop"))
-    assert o["decision"] == "block" and "gh pr create" in o["reason"]
+    assert o["decision"] == "block" and "shift.py finish" in o["reason"]
     assert shift.load(shift_repo)["status"] == "ending"
 
 
@@ -155,7 +155,7 @@ def test_stop_progress_resets_streak(shift_repo):
 @pytest.mark.parametrize("prompt", ["stop", "Stopp!", "  STOP. ", "hör auf", "hoer auf"])
 def test_prompt_stop_starts_wrap_up(shift_repo, prompt):
     o = out(run_hook(shift_repo, "prompt", {"prompt": prompt}))
-    assert "gh pr create" in o["hookSpecificOutput"]["additionalContext"]
+    assert "shift.py finish" in o["hookSpecificOutput"]["additionalContext"]
     assert o["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
     assert shift.load(shift_repo)["status"] == "ending"
 
@@ -253,7 +253,7 @@ def test_pre_tool_use_deadline_passed_only(shift_repo):
     r = run_hook(shift_repo, "pre-tool-use", {"tool_name": "Bash", "tool_input": {"command": "git status"}})
     hso = out(r)["hookSpecificOutput"]
     assert hso["hookEventName"] == "PreToolUse"
-    assert "gh pr create" in hso["additionalContext"]
+    assert "shift.py finish" in hso["additionalContext"]
     assert "permissionDecision" not in hso
     assert shift.load(shift_repo)["status"] == "ending"
 
@@ -264,7 +264,7 @@ def test_pre_tool_use_deadline_passed_and_denied(shift_repo):
                  {"tool_name": "Bash", "tool_input": {"command": "git push origin main"}})
     hso = out(r)["hookSpecificOutput"]
     assert hso["hookEventName"] == "PreToolUse"
-    assert "gh pr create" in hso["additionalContext"]
+    assert "shift.py finish" in hso["additionalContext"]
     assert hso["permissionDecision"] == "deny"
     assert "main/master" in hso["permissionDecisionReason"]
 
@@ -310,3 +310,51 @@ def test_worktree_cwd_falls_back_to_project_dir(shift_repo, tmp_path):
     subprocess.run(["git", "-C", str(other), "init", "-q"], check=True)
     r = run_hook(other, "stop", project_dir=shift_repo)
     assert out(r)["decision"] == "block"
+
+
+def add_worker(repo, branch="fix/x"):
+    wt = repo / ".claude" / "worktrees" / "wt"
+    subprocess.run(["git", "-C", str(repo), "worktree", "add", "-q", "--detach", str(wt)],
+                   check=True, capture_output=True)
+    shift.join(repo, wt, branch)
+    return wt
+
+
+def test_worker_in_linked_worktree_gets_guard_and_heartbeat(shift_repo):
+    wt = add_worker(shift_repo)
+    set_state(shift_repo, session_id="owner")
+    before = shift.load(shift_repo)
+    r = run_hook(wt, "pre-tool-use", {"session_id": "worker", "tool_name": "Bash",
+                                      "tool_input": {"command": "git push --force origin fix/x"}},
+                 project_dir=wt)
+    hso = out(r)["hookSpecificOutput"]
+    assert hso["permissionDecision"] == "deny" and "force push" in hso["permissionDecisionReason"]
+    assert shift.worker_path(shift_repo, "fix/x", ".heartbeat").exists()
+    r = run_hook(wt, "pre-tool-use", {"session_id": "worker", "tool_name": "Bash",
+                                      "tool_input": {"command": "rm -rf " + shift_repo.as_posix()}},
+                 project_dir=wt)
+    assert "outside the repo" in out(r)["hookSpecificOutput"]["permissionDecisionReason"]
+    assert out(run_hook(wt, "pre-tool-use", {"tool_name": "Bash",
+                                             "tool_input": {"command": "rm -rf build"}})) is None
+    assert shift.load(shift_repo) == before
+
+
+@pytest.mark.parametrize("event", ["stop", "prompt", "session-start", "stop-failure"])
+def test_worker_other_events_do_nothing(shift_repo, event):
+    wt = add_worker(shift_repo)
+    age_heartbeat(shift_repo)
+    before = shift.load(shift_repo)
+    r = run_hook(wt, event, {"session_id": "worker", "prompt": "stop", "source": "startup"})
+    assert (r.returncode, r.stdout, r.stderr) == (0, "", "")
+    assert shift.load(shift_repo) == before
+
+
+def test_coordinator_stop_with_running_worker_asks_to_wait(shift_repo):
+    add_worker(shift_repo)
+    o = out(run_hook(shift_repo, "stop"))
+    assert o["decision"] == "block" and "shift.py wait" in o["reason"]
+    assert "run_in_background" in o["reason"]
+    r = run_hook(shift_repo, "stop", {"background_tasks": [{"id": "t1", "status": "running"}]})
+    assert out(r) is None
+    shift.done(shift_repo, "fix/x", "done")
+    assert "next item" in out(run_hook(shift_repo, "stop"))["reason"]

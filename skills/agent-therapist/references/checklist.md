@@ -84,6 +84,14 @@ Respect the user setting under `cc-plugin-agents-md@builtin` (or its legacy `age
 - **`SessionStart` hook prints AGENTS.md:** propose removing the hook – Claude reads it anyway, the hook adds a second copy.
 An `@AGENTS.md` import or a `CLAUDE.md → AGENTS.md` symlink is fine – never flag it.
 
+## Check 9 – Session hand-off
+<!-- check: sessions/1 -->
+
+Only if a global rule tells Claude to suggest a new session. If it hands over only a ready-to-paste
+prompt, propose the "start it" rule text from `references/questions.md` → Block 0, question 2:
+Claude can now start the new session itself (desktop app: session tool; CLI: `claude --bg`), so the
+user no longer copies the prompt. Keep the paste prompt as the fallback.
+
 If `scan.py` finds little and the file already meets the `guide.md` checklist, keep the whole preview
 short (roughly 5 findings or fewer): report the genuine ones, then say so explicitly ("looks good,
 only this:") instead of adding marginal wording nitpicks to fill the preview.

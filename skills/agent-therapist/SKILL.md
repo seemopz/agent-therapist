@@ -118,7 +118,7 @@ into a new file.
   `AGENTS.md` changes instead – no CLAUDE.md.
 - **CLAUDE.md with `@AGENTS.md`**: first line `@AGENTS.md`, below only Claude-specific lines.
 
-**Optimize:** read `references/checklist.md` and run checks 1–8 (deterministic part, omit `$P` for
+**Optimize:** read `references/checklist.md` and run checks 1–9 (deterministic part, omit `$P` for
 scope Global: `python3 $SKILL/scripts/scan.py --global $G $P`). Collect findings, each with
 file:line, what, proposal, reason. Do not ask per finding yet – that happens in step 5.
 Then ask the questions `questions.md` → Question plan lists for "Project, Optimize" (deviations,
@@ -126,7 +126,7 @@ hooks, permissions).
 
 **Update:** Optimize, narrowed per level with the `stamp.py diff` result from step 1:
 - checks in `new_checks` + `updated_checks` → run on all files of that level;
-- files in `changed_files` + `added_files` → run all checks 1–8 on just these files;
+- files in `changed_files` + `added_files` → run all checks 1–9 on just these files;
 - `removed_files` → mention in the summary only.
 Skip the questions for deviations, hooks and permissions unless a finding needs one. A level in scope
 without a stamp runs as Optimize – say so in one line. If nothing is new on a stamped level, say

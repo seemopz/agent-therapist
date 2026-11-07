@@ -51,14 +51,19 @@ def test_skill_md_frontmatter_and_key_steps():
     assert text.startswith("---\nname: sleepless\ndescription: Use when ")
     for needle in ('scripts/shift.py" start', 'scripts/shift.py" status', 'scripts/shift.py" end',
                    'scripts/shift.py" finish', "AskUserQuestion", "PushNotification",
-                   "SLEEPLESS-REPORT.md", "Never merge", "caffeinate", "weiter"):
+                   "Never merge", "caffeinate", "weiter", ".claude/sleepless/reports/",
+                   "$SHIFT branch", "$SHIFT wait", "$SHIFT workers", "run_in_background",
+                   "start_session", "claude --bg", "Worker brief", "join <branch>",
+                   "done <branch> --status done --pr", "gh pr create --base <base>"):
         assert needle in text, needle
 
 
 def test_report_template_placeholders():
-    text = (SLEEPLESS_DIR / "templates" / "SLEEPLESS-REPORT.md").read_text(encoding="utf-8")
-    for key in ("label", "branch", "base", "started", "end"):
+    text = (SLEEPLESS_DIR / "templates" / "report.md").read_text(encoding="utf-8")
+    for key in ("label", "base", "started", "end"):
         assert "{{%s}}" % key in text
-    for heading in ("## Summary", "## Done", "## Decisions and questions", "## Blocked",
+    assert "{{branch}}" not in text
+    assert "| Item | Branch | PR |" in text
+    for heading in ("## Summary", "## Plan", "## Done", "## Decisions and questions", "## Blocked",
                     "## Findings", "## Next"):
         assert heading in text

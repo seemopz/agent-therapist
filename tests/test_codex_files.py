@@ -22,3 +22,11 @@ def test_codex_skill_package(name):
 def test_both_agents_share_repository_instructions():
     assert (ROOT / "AGENTS.md").is_file()
     assert "@AGENTS.md" in (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+
+
+def test_codex_sleepless_report_stays_out_of_git():
+    text = (ROOT / "codex" / "skills" / "sleepless" / "SKILL.md").read_text(encoding="utf-8")
+    for needle in (".sleepless/reports/", ".git/info/exclude", "never commit", "type/topic",
+                   "own pull request", "never merge"):
+        assert needle in text, needle
+    assert "SLEEPLESS-REPORT.md" not in text
