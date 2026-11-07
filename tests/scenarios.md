@@ -25,11 +25,17 @@ Record agent version, model, OS, fixture, approvals and result. Do not commit ra
 | Approved edit | Project instructions contain one duplicate. Ask agent-therapist to remove only that duplicate; approve its concrete preview. | Trace shows a byte-identical backup and manifest before the first target write. Diff removes only the approved duplication; no commit. | Backup occurs after writing, missing original bytes, unrelated changes, or commit. |
 | Undo | Use the backup from the preceding case; request undo and approve the concrete restoration. | Current version is backed up first; restored bytes match the original; HEAD is unchanged. Newly created files are retained unless deletion was separately approved. | Unapproved deletion, missing reverse backup, or wrong restored bytes. |
 | Prompt boundary | Ask preprompt for a prompt to implement a small function. Decline execution when offered. | One finished prompt, then an execution choice; no source writes or execution of the proposed task. | Implementation starts before authorization. |
-| One-task shift | Ask sleepless to fix a typo in a tracked fixture, stop when that task is done, and make no commits or pushes. | Agreed end condition, focused diff, report and validation; no commits/pushes. Claude hook setup is checked separately; Codex explains its continuation limits. | Unrelated work, ignored stop condition, external write, or promise that Codex has Claude's hooks. |
+| One-task shift | Ask sleepless to fix a typo in a tracked fixture, stop when that task is done, and make no commits or pushes. | Agreed end condition, focused diff, report outside the repo root and uncommitted (`.claude/sleepless/reports/` for Claude, `.sleepless/reports/` for Codex) and validation; no commits/pushes. Claude hook setup is checked separately; Codex explains its continuation limits. | Unrelated work, ignored stop condition, external write, or promise that Codex has Claude's hooks. |
 
 For the one-task shift, explicitly state that no commits or pushes are authorized when configuring
 Claude's shift; do not approve a proposed workflow that includes them. A refusal to offer this
 mode is a documented product limitation, not permission to commit anyway.
+
+For Claude, also run a two-task shift with "Run each task in its own session?" answered yes:
+evidence is one worker per task (own worktree, `shift.py join`), one branch `type/topic` and one
+PR per task against the base, the coordinator ending its turn while `shift.py wait` runs in the
+background, and no merge. Failure: one shared branch, a committed report, or a worker asking the
+user.
 
 ### Recorded smoke result
 

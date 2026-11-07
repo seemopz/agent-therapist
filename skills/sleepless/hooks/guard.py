@@ -26,13 +26,13 @@ PUSH_OPTS_WITH_VALUE = {"-o", "--push-option", "--repo", "--receive-pack", "--ex
 
 FORCE = "force push is blocked during a sleepless shift"
 PROTECTED_MSG = ("pushing to main/master is blocked during a sleepless shift; "
-                 "push the shift branch instead")
+                 "push the task branch instead")
 ALL = "pushing all branches is blocked during a sleepless shift"
 DELETE = "deleting remote branches is blocked during a sleepless shift"
 OUTSIDE = "deleting outside the repo (%s) is blocked during a sleepless shift"
 UNRESOLVED = "cannot resolve the path %r to check that it is inside the repo; use a literal path"
 MESSAGE = ("sending messages is blocked during a sleepless shift; "
-           "note it in SLEEPLESS-REPORT.md instead")
+           "note it in the shift report instead")
 MERGE = ("merging is blocked during a sleepless shift; "
          "the shift ends with a pull request, never a merge")
 REPO_ROOT = "deleting the repo root is blocked during a sleepless shift"

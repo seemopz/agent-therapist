@@ -1,6 +1,6 @@
 # Sleepless shift: {{label}}
 
-Branch `{{branch}}` from `{{base}}` · started {{started}} · ends {{end}}
+Base `{{base}}` · started {{started}} · ends {{end}}
 
 ## Summary
 
@@ -12,8 +12,8 @@ _Task list in the order it will be worked on._
 
 ## Done
 
-| Item | Commits |
-|---|---|
+| Item | Branch | PR |
+|---|---|---|
 
 ## Decisions and questions
 

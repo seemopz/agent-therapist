@@ -5,7 +5,7 @@ A Claude Code plugin and a separate set of Codex skills with three workflows:
 | Skill | What it does |
 |---|---|
 | [**agent-therapist**](#agent-therapist-1) | builds or tidies up your Claude Code setup: `CLAUDE.md` files, `~/.claude/rules/`, hooks and permissions |
-| [**sleepless**](#sleepless) | runs a long autonomous work shift in any git repo and ends it with a pull request |
+| [**sleepless**](#sleepless) | runs a long autonomous work shift in any git repo, one session and one pull request per task |
 | [**preprompt**](#preprompt) | turns a rough idea into a finished prompt for Claude, asking only what is missing |
 
 Made for people who want Claude Code to work well without knowing every detail of it.
@@ -39,13 +39,13 @@ existing files provide suggestions to confirm. Optimize asks only about unresolv
 Its workflow does not use the Claude-specific scanner or update stamps. Codex's
 sleepless runs a sustained session while it is active, but does not install Claude hooks: automatic
 continuation, restart, rate-limit recovery, and hook-enforced command guards are not provided.
-Resume an interrupted session using `SLEEPLESS-REPORT.md`. The remaining sections describe Claude.
+Resume an interrupted session using its report in `.sleepless/reports/`. The remaining sections describe Claude.
 
 ### Claude Code
 
 Requirements: Claude Code, `python3` (3.9 or newer, standard library only), `git`.
 `gh` is optional for agent-therapist (used read-only to detect branch protection and pull requests)
-and required with write access for sleepless (it opens the shift's pull request).
+and required with write access for sleepless (it opens one pull request per task).
 
 ```bash
 git clone <repo-url> ~/repos/agent-therapist
@@ -131,8 +131,12 @@ The conversation stays in your language.
 
 ## sleepless
 
-Claude works through a task list and then quality work on branch `sleepless/<date>`, commits and
-pushes after every step, and ends with `SLEEPLESS-REPORT.md` and a pull request – never a merge.
+Claude works through a task list and then quality work. Each task gets its own branch `type/topic`
+from the branch you started on and its own pull request – never a merge. Where possible each task
+runs in its own background session with its own git worktree (desktop app session tool or
+`claude --bg`), up to 3 at a time; the main session coordinates and keeps a report in
+`.claude/sleepless/reports/` that is never committed. At the end you get a push notification and
+a closing message with the PR links.
 
 ### Use
 
@@ -145,12 +149,12 @@ In the repo you want worked on:
 or in plain words, e.g. "work through the night". One round of at most four questions sets the
 end of the shift (when you say stop, at a time, after N hours, or when the list is done) and the
 task sources (a list in your prompt, `TODO.md`, GitHub issues, or tasks Claude proposes from the
-repo). After that Claude decides on its own and writes every decision with its reason into the
+repo), plus whether each task runs in its own session. After that Claude decides on its own and writes every decision with its reason into the
 report.
 
 | You type | Effect |
 |---|---|
-| `stop` | Claude wraps up: commit, push, final report, pull request |
+| `stop` | Claude wraps up: workers finish or are parked, every task branch pushed with its PR, final report |
 | `weiter` or `resume shift` | resumes a shift that paused because nothing changed |
 
 ### Hooks
@@ -159,22 +163,24 @@ Hooks do the parts that must not depend on Claude:
 
 | Hook | Does |
 |---|---|
-| Stop | keeps the turn going; pauses when more than 6 stop attempts in a row bring no repo change (`SLEEPLESS_IDLE_LIMIT`, clamped to 1-6) |
+| Stop | keeps the turn going (lets it end while `shift.py wait` runs in the background for workers); pauses when more than 6 stop attempts in a row bring no repo change (`SLEEPLESS_IDLE_LIMIT`, clamped to 1-6) |
 | UserPromptSubmit | `stop` ends the shift, `weiter` or `resume shift` resumes a paused one |
 | SessionStart | wakes a restarted session and continues the shift |
 | StopFailure | tries to wake the shift 15 minutes after a rate limit, overload or server error (best effort: Claude Code documents StopFailure as notification-only; not verified in a real session) |
-| PreToolUse | blocks force push, push to main/master, deleting remote branches, merging, deleting outside the repo, sending messages |
+| PreToolUse | blocks force push, push to main/master, deleting remote branches, merging, deleting outside the repo, sending messages – also in worker sessions; records worker heartbeats |
 
-Without an active shift the hooks do nothing. State lives in `.claude/sleepless/` (git-excluded).
+Without an active shift the hooks do nothing. In worker sessions only PreToolUse acts. State and
+reports live in `.claude/sleepless/` (git-excluded); `finish` keeps only `reports/`.
 
 ### Good to know
 
 - Keeping the machine awake is up to you.
 - There is no cost limit; a shift runs until its end condition.
 - A second session in the same checkout is ignored by the hooks while the shift session is alive
-  (heartbeat younger than 10 minutes). Use a separate worktree for parallel work.
-- Allowed without asking during a shift: pushing the shift branch, opening the pull request,
-  deploys as documented in the repo.
+  (heartbeat younger than 10 minutes). Sessions in other worktrees of the repo count as workers:
+  the command guard applies to them during a shift.
+- Allowed without asking during a shift: pushing task branches, opening their pull requests,
+  starting worker sessions (if you said yes at the start), deploys as documented in the repo.
 
 ## preprompt
 
@@ -221,7 +227,7 @@ skills/sleepless/
   hooks/hooks.json, hook.py      hook registration and entry point
   hooks/guard.py                 commands blocked during a shift
   scripts/shift.py               shift state and CLI
-  templates/SLEEPLESS-REPORT.md  report skeleton
+  templates/report.md            report skeleton
 skills/preprompt/
   SKILL.md                       the flow (steps 1–6)
   references/prompt-rules.md     prompt skeleton, rules, checklist, sources
