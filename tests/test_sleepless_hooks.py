@@ -331,7 +331,7 @@ def test_worker_in_linked_worktree_gets_guard_and_heartbeat(shift_repo):
     assert hso["permissionDecision"] == "deny" and "force push" in hso["permissionDecisionReason"]
     assert shift.worker_path(shift_repo, "fix/x", ".heartbeat").exists()
     r = run_hook(wt, "pre-tool-use", {"session_id": "worker", "tool_name": "Bash",
-                                      "tool_input": {"command": "rm -rf " + str(shift_repo)}},
+                                      "tool_input": {"command": "rm -rf " + shift_repo.as_posix()}},
                  project_dir=wt)
     assert "outside the repo" in out(r)["hookSpecificOutput"]["permissionDecisionReason"]
     assert out(run_hook(wt, "pre-tool-use", {"tool_name": "Bash",
