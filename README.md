@@ -132,7 +132,8 @@ The conversation stays in your language.
 ## sleepless
 
 Claude works through a task list and then quality work. Each task gets its own branch `type/topic`
-from the branch you started on and its own pull request – never a merge. Where possible each task
+from the branch you started on and its own pull request – merged only if you turn on merge mode
+at the start. Where possible each task
 runs in its own background session with its own git worktree (desktop app session tool or
 `claude --bg`), up to 3 at a time; the main session coordinates and keeps a report in
 `.claude/sleepless/reports/` that is never committed. At the end you get a push notification and
@@ -149,7 +150,8 @@ In the repo you want worked on:
 or in plain words, e.g. "work through the night". One round of at most four questions sets the
 end of the shift (when you say stop, at a time, after N hours, or when the list is done) and the
 task sources (a list in your prompt, `TODO.md`, GitHub issues, or tasks Claude proposes from the
-repo), plus whether each task runs in its own session. After that Claude decides on its own and writes every decision with its reason into the
+repo), whether each task runs in its own session, and whether Claude may squash-merge its own
+task PRs once CI is green and the review is done (merge mode, off by default). After that Claude decides on its own and writes every decision with its reason into the
 report.
 
 | You type | Effect |
@@ -167,7 +169,7 @@ Hooks do the parts that must not depend on Claude:
 | UserPromptSubmit | `stop` ends the shift, `weiter` or `resume shift` resumes a paused one |
 | SessionStart | wakes a restarted session and continues the shift |
 | StopFailure | tries to wake the shift 15 minutes after a rate limit, overload or server error (best effort: Claude Code documents StopFailure as notification-only; not verified in a real session) |
-| PreToolUse | blocks force push, push to main/master, deleting remote branches, merging, deleting outside the repo, sending messages – also in worker sessions; records worker heartbeats |
+| PreToolUse | blocks force push, push to main/master, deleting remote branches, merging, `git merge` into main/master, deleting outside the repo, sending messages – also in worker sessions; records worker heartbeats. In merge mode it allows exactly `gh pr merge <task branch> --squash` for branches the shift created (no `--admin`, `--auto`, `--delete-branch`, `-R`) |
 
 Without an active shift the hooks do nothing. In worker sessions only PreToolUse acts. State and
 reports live in `.claude/sleepless/` (git-excluded); `finish` keeps only `reports/`.
@@ -180,7 +182,12 @@ reports live in `.claude/sleepless/` (git-excluded); `finish` keeps only `report
   (heartbeat younger than 10 minutes). Sessions in other worktrees of the repo count as workers:
   the command guard applies to them during a shift.
 - Allowed without asking during a shift: pushing task branches, opening their pull requests,
-  starting worker sessions (if you said yes at the start), deploys as documented in the repo.
+  starting worker sessions (if you said yes at the start), squash-merging the shift's own PRs (merge
+  mode only), deploys as documented in the repo.
+- Quality work stays lean: cleanup PRs must not grow non-test code, one theme per PR, and each PR
+  states its line delta. Features come only from `TODO.md`, issues or follow-up lists in the docs.
+- A worker cleans up after its test runs; `shift.py done --status done` refuses while its worktree
+  has stray or uncommitted files.
 
 ## preprompt
 
