@@ -8,7 +8,7 @@ import os
 import re
 import shlex
 import subprocess
-from typing import List, Optional
+from typing import Collection, List, Optional
 
 PROTECTED = ("main", "master")
 SEPARATORS = {";", ";;", "&&", "||", "|", "|&", "&", "(", ")"}
@@ -36,6 +36,13 @@ MESSAGE = ("sending messages is blocked during a sleepless shift; "
 MERGE = ("merging is blocked during a sleepless shift; "
          "the shift ends with a pull request, never a merge")
 REPO_ROOT = "deleting the repo root is blocked during a sleepless shift"
+MERGE_MAIN = "merging into main/master is blocked during a sleepless shift"
+MERGE_FOREIGN = ("%s is not a task branch of this shift; merge mode only allows "
+                 "`gh pr merge <task branch> --squash`")
+MERGE_FLAG = "%s is not allowed in merge mode; use `gh pr merge <task branch> --squash`"
+MERGE_SQUASH = "merge mode only squash-merges: add --squash"
+MERGE_OPTS_WITH_VALUE = {"-t", "--subject", "-b", "--body", "-F", "--body-file",
+                         "--match-head-commit"}
 
 
 def segments(command: str) -> List[List[str]]:
@@ -101,6 +108,11 @@ def _check_git(words: List[str], cwd: str) -> Optional[str]:
             i += 2
         else:
             i += 1
+    if i < len(words) and words[i] == "merge":
+        if (_current_branch(gcwd) in PROTECTED
+                and not any(w in ("--abort", "--quit") for w in words[i + 1:])):
+            return MERGE_MAIN
+        return None
     if i >= len(words) or words[i] != "push":
         return None
     opts, positional = [], []  # type: List[str], List[str]
@@ -172,16 +184,46 @@ def _check_delete(words: List[str], cwd: str, root: str) -> Optional[str]:
     return None
 
 
-def _check_message(words: List[str]) -> Optional[str]:
+def _check_pr_merge(args: List[str], repo_opt: bool, cwd: str,
+                    merge_branches: Optional[Collection[str]]) -> Optional[str]:
+    """Merge mode allows only `gh pr merge [<task branch>] --squash [message options]`."""
+    if merge_branches is None:
+        return MERGE
+    if repo_opt:
+        return MERGE_FLAG % "-R/--repo"
+    selectors, squash, j = [], False, 0  # type: List[str], bool, int
+    while j < len(args):
+        a = args[j]
+        if a in ("-s", "--squash"):
+            squash = True
+        elif a in MERGE_OPTS_WITH_VALUE:
+            j += 1
+        elif a.startswith("--") and a.split("=", 1)[0] in MERGE_OPTS_WITH_VALUE:
+            pass
+        elif a.startswith("-"):
+            return MERGE_FLAG % a
+        else:
+            selectors.append(a)
+        j += 1
+    if not squash:
+        return MERGE_SQUASH
+    branch = selectors[0] if len(selectors) == 1 else _current_branch(cwd)
+    if len(selectors) > 1 or branch not in merge_branches:
+        return MERGE_FOREIGN % (" ".join(selectors) or branch or "the current branch")
+    return None
+
+
+def _check_message(words: List[str], cwd: str,
+                   merge_branches: Optional[Collection[str]] = None) -> Optional[str]:
     name = os.path.basename(words[0])
     if name == "gh":
-        i = 1
+        i, repo_opt = 1, False
         while i < len(words):
             w = words[i]
             if w in GH_GLOBAL_OPTS_WITH_VALUE and i + 1 < len(words):
-                i += 2
+                i, repo_opt = i + 2, True
             elif w.startswith("--repo="):
-                i += 1
+                i, repo_opt = i + 1, True
             elif w.startswith("-") and not w.startswith("--"):
                 i += 1
             else:
@@ -191,7 +233,7 @@ def _check_message(words: List[str]) -> Optional[str]:
             if sub in GH_MESSAGES:
                 return MESSAGE
             if sub in GH_MERGE:
-                return MERGE
+                return _check_pr_merge(words[i + 2:], repo_opt, cwd, merge_branches)
     if name in MAILERS:
         return MESSAGE
     if name in ("curl", "wget") and any(h in w for w in words for h in WEBHOOKS):
@@ -199,7 +241,8 @@ def _check_message(words: List[str]) -> Optional[str]:
     return None
 
 
-def check_bash(command: str, cwd: str, root: str) -> Optional[str]:
+def check_bash(command: str, cwd: str, root: str,
+               merge_branches: Optional[Collection[str]] = None) -> Optional[str]:
     for seg in segments(command):
         words = _command_words(seg)
         if not words:
@@ -208,16 +251,22 @@ def check_bash(command: str, cwd: str, root: str) -> Optional[str]:
             if len(words) > 1:
                 cwd = _resolve(cwd, words[1]) or cwd
             continue
-        reason = _check_git(words, cwd) or _check_delete(words, cwd, root) or _check_message(words)
+        reason = (_check_git(words, cwd) or _check_delete(words, cwd, root)
+                  or _check_message(words, cwd, merge_branches))
         if reason:
             return reason
     return None
 
 
-def check(tool_name: str, tool_input: dict, cwd: str, root: str) -> Optional[str]:
-    """A deny reason for this tool call, or None to let it through."""
+def check(tool_name: str, tool_input: dict, cwd: str, root: str,
+          merge_branches: Optional[Collection[str]] = None) -> Optional[str]:
+    """A deny reason for this tool call, or None to let it through.
+
+    merge_branches is None outside merge mode; in merge mode it holds the shift's task branches,
+    whose pull requests may be squash-merged with `gh pr merge`.
+    """
     if tool_name == "Bash":
-        return check_bash(str(tool_input.get("command", "")), str(cwd), str(root))
+        return check_bash(str(tool_input.get("command", "")), str(cwd), str(root), merge_branches)
     if tool_name.startswith("mcp__"):
         last_segment = tool_name.rsplit("__", 1)[-1]
         words = [m.group(0).lower() for m in WORD_SPLIT.finditer(last_segment)]

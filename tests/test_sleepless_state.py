@@ -388,3 +388,46 @@ def test_cli_round_trip(git_repo):
 def test_cli_outside_git_repo(tmp_path):
     r = run_cli(tmp_path, "status")
     assert r.returncode == 1 and "not inside a git repo" in r.stderr
+
+
+def test_start_records_merge_mode(git_repo):
+    assert shift.start(git_repo, "a", "stop", start_time=T0)["merge"] is False
+    shift.end(git_repo)
+    shift.finish(git_repo)
+    r = run_cli(git_repo, "start", "--label", "b", "--end", "stop", "--merge")
+    assert r.returncode == 0, r.stderr
+    assert json.loads(r.stdout)["merge"] is True
+
+
+def test_wrap_up_mentions_merge_only_in_merge_mode(git_repo):
+    state = shift.start(git_repo, "a", "stop", start_time=T0)
+    assert "Never merge" in shift.wrap_up(state)
+    assert "Never merge" not in shift.wrap_up(dict(state, merge=True))
+    assert "squash-merge" in shift.wrap_up(dict(state, merge=True))
+
+
+def test_task_branches_from_branch_command_and_workers(git_repo):
+    shift.start(git_repo, "a", "stop", start_time=T0)
+    r = run_cli(git_repo, "branch", "feat", "New thing")
+    assert r.returncode == 0, r.stderr
+    shift.join(git_repo, add_worktree(git_repo), "fix/joined")
+    assert shift.task_branches(git_repo, shift.load(git_repo)) == {"feat/new-thing", "fix/joined"}
+
+
+def test_branch_command_works_without_a_shift(git_repo):
+    r = run_cli(git_repo, "branch", "fix", "x")
+    assert (r.returncode, r.stdout.strip()) == (0, "fix/x")
+    assert shift.load(git_repo) is None
+
+
+def test_done_refuses_dirty_worktree(git_repo):
+    shift.start(git_repo, "a", "stop", start_time=T0)
+    wt = add_worktree(git_repo)
+    shift.join(git_repo, wt, "fix/x")
+    (wt / "scratch.log").write_text("test output\n", encoding="utf-8")
+    r = run_cli(wt, "done", "fix/x", "--status", "done")
+    assert r.returncode == 1 and "scratch.log" in r.stderr and "not clean" in r.stderr
+    assert shift.workers(git_repo)[0]["status"] == "running"
+    assert run_cli(wt, "done", "fix/x", "--status", "blocked", "--note", "x").returncode == 0
+    (wt / "scratch.log").unlink()
+    assert run_cli(wt, "done", "fix/x", "--status", "done").returncode == 0

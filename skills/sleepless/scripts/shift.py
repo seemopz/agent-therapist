@@ -2,7 +2,7 @@
 
 Standard library only, Python 3.9. The hooks import this module; Claude runs it as a CLI:
 
-    python3 shift.py start --label L --end stop|time|hours|list [--at HH:MM | --hours N] --sources a,b
+    python3 shift.py start --label L --end stop|time|hours|list [--at HH:MM | --hours N] --sources a,b [--merge]
     python3 shift.py branch <type> <topic>
     python3 shift.py join <branch> [--from <ref>]
     python3 shift.py done <branch> --status done|blocked [--pr URL] [--note TEXT]
@@ -237,7 +237,7 @@ def _end_text(kind: str, deadline: Optional[dt.datetime]) -> str:
 
 
 def start(root, label: str, end_kind: str, at: Optional[str] = None, hours: Optional[float] = None,
-          sources=(), start_time: Optional[dt.datetime] = None) -> dict:
+          sources=(), start_time: Optional[dt.datetime] = None, merge: bool = False) -> dict:
     if load(root) is not None:
         raise ShiftError("a shift is already active in this repo; run `shift.py status`")
     main = main_checkout(root)
@@ -263,6 +263,8 @@ def start(root, label: str, end_kind: str, at: Optional[str] = None, hours: Opti
         "started": started.isoformat(),
         "end": {"kind": end_kind, "at": deadline.isoformat() if deadline else None},
         "sources": list(sources),
+        "merge": merge,
+        "branches": [],
         "status": "active",
         "idle": {"fingerprint": "", "streak": 0},
         "last_stop": None,
@@ -287,6 +289,19 @@ def _require(root) -> dict:
     return state
 
 
+def register_branch(root, branch: str) -> None:
+    """Record a task branch named by `branch` so merge mode may merge its pull request."""
+    state = load(root)
+    if state is not None:
+        state["branches"] = state.get("branches", []) + [branch]
+        save(root, state)
+
+
+def task_branches(root, state: dict) -> set:
+    """Branches this shift created: named by `branch` or joined by a worker."""
+    return set(state.get("branches", [])) | {w["branch"] for w in workers(root)}
+
+
 def join(root, worktree, branch: str, from_ref: Optional[str] = None) -> dict:
     """Put the worktree on its task branch (cut from from_ref or the base); mark it running."""
     state = _require(root)
@@ -304,10 +319,17 @@ def join(root, worktree, branch: str, from_ref: Optional[str] = None) -> dict:
 
 
 def done(root, branch: str, status: str, pr: Optional[str] = None,
-         note: Optional[str] = None) -> dict:
+         note: Optional[str] = None, worktree=None) -> dict:
     _require(root)
     if status not in WORKER_END:
         raise ShiftError("--status must be one of: " + ", ".join(WORKER_END))
+    if status == "done" and worktree is not None:
+        dirty = git(worktree, "status", "--porcelain", "--untracked-files=all")
+        if dirty:
+            raise ShiftError("the worktree is not clean:\n%s\nCommit what belongs to the task, "
+                             "delete stray test files and logs (scratch files go to the system temp "
+                             "dir), stop servers and watchers you started, then run done again"
+                             % dirty)
     p = worker_path(root, branch, ".json")
     if not p.is_file():
         raise ShiftError("no worker for branch %s; see `shift.py workers`" % branch)
@@ -392,17 +414,24 @@ def report_name(state: dict) -> str:
     return "`%s`" % state["report"] if state.get("report") else "the shift report"
 
 
+def merge_rule(state: dict) -> str:
+    if state.get("merge"):
+        return ("Merge mode is on: squash-merge only this shift's task PRs whose CI is green and "
+                "whose review is done; leave every other PR open.")
+    return "Never merge."
+
+
 def wrap_up(state: dict) -> str:
     return (
         "Sleepless shift is ending (%s). Wrap up now: wait for running task workers (`shift.py "
         "wait`) or park them (`shift.py done <branch> --status blocked`), and finish or cleanly "
         "park your own current step. Make sure every task branch is pushed and has its own PR "
-        "against `%s` (or the branch it depends on). Never merge. Finalize the report at %s "
+        "against `%s` (or the branch it depends on). %s Finalize the report at %s "
         "(summary with real duration, done with branches and PR links, decisions and questions, "
         "blocked, findings, next); it is never committed. Send a PushNotification with the PR "
         "links, run `shift.py finish` (see the sleepless skill), then write the closing message "
         "with the summary and the PR links."
-        % (state.get("label") or "no label", state["base"], report_name(state))
+        % (state.get("label") or "no label", state["base"], merge_rule(state), report_name(state))
     )
 
 
@@ -415,6 +444,8 @@ def main(argv=None) -> int:
     p.add_argument("--at")
     p.add_argument("--hours", type=float)
     p.add_argument("--sources", default="")
+    p.add_argument("--merge", action="store_true",
+                   help="allow squash-merging this shift's own task PRs")
     p = sub.add_parser("branch")
     p.add_argument("type", choices=BRANCH_TYPES)
     p.add_argument("topic")
@@ -436,17 +467,21 @@ def main(argv=None) -> int:
         print("shift.py: not inside a git repo", file=sys.stderr)
         return 1
     try:
-        root = top if args.cmd in ("start", "branch") else shift_root(top)
+        root = top if args.cmd == "start" else shift_root(top)
         if args.cmd == "start":
             sources = [s.strip() for s in args.sources.split(",") if s.strip()]
-            out = start(root, args.label, args.end, args.at, args.hours, sources)
+            out = start(root, args.label, args.end, args.at, args.hours, sources, merge=args.merge)
         elif args.cmd == "branch":
-            print(branch_name(root, args.type, args.topic))
+            name = branch_name(root, args.type, args.topic)
+            register_branch(root, name)
+            print(name)
             return 0
         elif args.cmd == "join":
             out = join(root, top, args.branch, args.from_ref)
         elif args.cmd == "done":
-            out = done(root, args.branch, args.status, args.pr, args.note)
+            # only a worker's own worktree is checked; the main checkout holds nested worktrees
+            wt = None if Path(top).resolve() == Path(root).resolve() else top
+            out = done(root, args.branch, args.status, args.pr, args.note, worktree=wt)
         elif args.cmd == "wait":
             out = wait(root, args.timeout_minutes)
         elif args.cmd == "workers":

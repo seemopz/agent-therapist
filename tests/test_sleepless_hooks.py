@@ -358,3 +358,21 @@ def test_coordinator_stop_with_running_worker_asks_to_wait(shift_repo):
     assert out(r) is None
     shift.done(shift_repo, "fix/x", "done")
     assert "next item" in out(run_hook(shift_repo, "stop"))["reason"]
+
+
+def test_worker_may_squash_merge_own_pr_only_in_merge_mode(shift_repo):
+    wt = add_worker(shift_repo)
+    payload = {"session_id": "worker", "tool_name": "Bash",
+               "tool_input": {"command": "gh pr merge fix/x --squash"}}
+    hso = out(run_hook(wt, "pre-tool-use", payload, project_dir=wt))["hookSpecificOutput"]
+    assert hso["permissionDecision"] == "deny" and "merging" in hso["permissionDecisionReason"]
+    set_state(shift_repo, merge=True)
+    assert out(run_hook(wt, "pre-tool-use", payload, project_dir=wt)) is None
+    payload["tool_input"]["command"] = "gh pr merge fix/other --squash"
+    assert out(run_hook(wt, "pre-tool-use", payload, project_dir=wt)) is not None
+
+
+def test_coordinator_may_squash_merge_task_pr_in_merge_mode(shift_repo):
+    set_state(shift_repo, merge=True, branches=["feat/a"])
+    payload = {"tool_name": "Bash", "tool_input": {"command": "gh pr merge feat/a --squash"}}
+    assert out(run_hook(shift_repo, "pre-tool-use", payload)) is None
