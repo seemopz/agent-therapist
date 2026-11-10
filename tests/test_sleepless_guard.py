@@ -133,3 +133,62 @@ def test_rm_with_fd_prefix_allowed(git_repo):
     assert guard.check("Bash", {"command": "rm x > /tmp/log 2>&1"}, str(git_repo), str(git_repo)) is None
     # rm /42 should be denied (42 is a path, not a file descriptor)
     assert "outside" in guard.check("Bash", {"command": "rm /42"}, str(git_repo), str(git_repo))
+
+
+OWN = {"feat/own-task"}
+
+
+@pytest.mark.parametrize("command", [
+    "gh pr merge feat/own-task --squash",
+    "gh pr merge feat/own-task -s --subject 'feat(x): y' --body-file /tmp/body.md",
+    "gh pr merge --squash feat/own-task --match-head-commit abc123",
+])
+def test_merge_mode_allows_squash_merge_of_own_task_pr(git_repo, command):
+    assert guard.check("Bash", {"command": command}, str(git_repo), str(git_repo), OWN) is None
+
+
+def test_merge_mode_allows_bare_merge_on_own_task_branch(git_repo):
+    subprocess.run(["git", "-C", str(git_repo), "switch", "-qc", "feat/own-task"], check=True)
+    assert guard.check("Bash", {"command": "gh pr merge --squash"}, str(git_repo), str(git_repo),
+                       OWN) is None
+
+
+@pytest.mark.parametrize("command,reason", [
+    ("gh pr merge feat/own-task --squash", "merging"),  # merge mode off
+])
+def test_merge_denied_without_merge_mode(git_repo, command, reason):
+    assert reason in guard.check("Bash", {"command": command}, str(git_repo), str(git_repo))
+    assert reason in guard.check("Bash", {"command": command}, str(git_repo), str(git_repo), None)
+
+
+@pytest.mark.parametrize("command,reason", [
+    ("gh pr merge feat/someone-else --squash", "not a task branch"),
+    ("gh pr merge 3 --squash", "not a task branch"),
+    ("gh pr merge https://github.com/o/r/pull/3 --squash", "not a task branch"),
+    ("gh pr merge --squash", "not a task branch"),  # current branch is main
+    ("gh pr merge feat/own-task --squash --admin", "--admin"),
+    ("gh pr merge feat/own-task --squash --auto", "--auto"),
+    ("gh pr merge feat/own-task --squash -d", "-d"),
+    ("gh pr merge feat/own-task --merge", "--merge"),
+    ("gh pr merge feat/own-task --rebase", "--rebase"),
+    ("gh pr merge feat/own-task", "--squash"),
+    ("gh -R owner/repo pr merge feat/own-task --squash", "-R"),
+    ("git merge feat/own-task", "into main/master"),
+])
+def test_merge_mode_denies_everything_else(git_repo, command, reason):
+    result = guard.check("Bash", {"command": command}, str(git_repo), str(git_repo), OWN)
+    assert result is not None and reason in result
+
+
+def test_merge_mode_keeps_mcp_merge_blocked(git_repo):
+    result = guard.check("mcp__github__merge_pull_request", {}, str(git_repo), str(git_repo), OWN)
+    assert result is not None and "merging" in result
+
+
+def test_git_merge_into_main_denied_but_allowed_on_task_branch(git_repo):
+    assert "into main/master" in guard.check("Bash", {"command": "git merge origin/x"},
+                                             str(git_repo), str(git_repo))
+    assert guard.check("Bash", {"command": "git merge --abort"}, str(git_repo), str(git_repo)) is None
+    subprocess.run(["git", "-C", str(git_repo), "switch", "-qc", "feat/own-task"], check=True)
+    assert guard.check("Bash", {"command": "git merge origin/main"}, str(git_repo),
+                       str(git_repo)) is None

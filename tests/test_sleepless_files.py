@@ -54,7 +54,9 @@ def test_skill_md_frontmatter_and_key_steps():
                    "Never merge", "caffeinate", "weiter", ".claude/sleepless/reports/",
                    "$SHIFT branch", "$SHIFT wait", "$SHIFT workers", "run_in_background",
                    "start_session", "claude --bg", "Worker brief", "join <branch>",
-                   "done <branch> --status done --pr", "gh pr create --base <base>"):
+                   "done <branch> --status done --pr", "gh pr create --base <base>",
+                   "[--merge]", "gh pr merge <branch> --squash", "Keep changes lean",
+                   "Merge own PRs when CI is green?"):
         assert needle in text, needle
 
 

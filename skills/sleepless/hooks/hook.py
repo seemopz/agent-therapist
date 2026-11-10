@@ -208,7 +208,7 @@ def on_pre_tool_use(root, state: dict, data: dict) -> int:
     if not check_session(root, state, data):
         return 0
     shift.touch_heartbeat(root)
-    reason = guard_reason(data, root)
+    reason = guard_reason(data, root, state)
     hso = {"hookEventName": "PreToolUse"}
     if state["status"] == "active" and shift.deadline_passed(state):
         state["status"] = "ending"
@@ -222,19 +222,21 @@ def on_pre_tool_use(root, state: dict, data: dict) -> int:
     return 0
 
 
-def guard_reason(data: dict, root) -> Optional[str]:
+def guard_reason(data: dict, root, state: dict, worktree=None) -> Optional[str]:
     tool_input = data.get("tool_input")
+    merge_branches = shift.task_branches(root, state) if state.get("merge") else None
     return guard.check(str(data.get("tool_name", "")),
                        tool_input if isinstance(tool_input, dict) else {},
-                       str(data.get("cwd") or root), str(root))
+                       str(data.get("cwd") or worktree or root), str(worktree or root),
+                       merge_branches)
 
 
-def on_worker_pre_tool_use(root, data: dict, worktree) -> int:
+def on_worker_pre_tool_use(root, state: dict, data: dict, worktree) -> int:
     """A task worker: guard rules inside its own worktree, heartbeat for its task branch."""
     branch = shift._run_git(worktree, "branch", "--show-current").stdout.strip()
     if branch and shift.worker_path(root, branch, ".json").is_file():
         shift.worker_path(root, branch, ".heartbeat").touch()
-    reason = guard_reason(data, worktree)
+    reason = guard_reason(data, root, state, worktree)
     if reason:
         emit({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                      "permissionDecisionReason": "sleepless: " + reason}})
@@ -275,7 +277,7 @@ def main(argv) -> int:
     root, state, worktree = found
     try:
         if worktree is not None:  # workers may end their turn; the coordinator follows up
-            return on_worker_pre_tool_use(root, data, worktree) if handler is on_pre_tool_use else 0
+            return on_worker_pre_tool_use(root, state, data, worktree) if handler is on_pre_tool_use else 0
         return handler(root, state, data)
     except Exception as e:  # noqa: BLE001 - any other failure must not break the session
         emit({"systemMessage": "sleepless: hook error (%s: %s); the sleepless hooks are inactive "

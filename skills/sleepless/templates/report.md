@@ -12,8 +12,8 @@ _Task list in the order it will be worked on._
 
 ## Done
 
-| Item | Branch | PR |
-|---|---|---|
+| Item | Branch | PR | Merged |
+|---|---|---|---|
 
 ## Decisions and questions
 
