@@ -254,7 +254,7 @@ def test_deadline_passed():
 
 
 def test_end_then_finish_removes_state_but_keeps_reports(git_repo):
-    state = shift.start(git_repo, "a", "stop", start_time=T0)
+    state = shift.start(git_repo, "a", "list", start_time=T0)
     shift.join(git_repo, add_worktree(git_repo), "fix/x")
     with pytest.raises(shift.ShiftError, match="end"):
         shift.finish(git_repo)
@@ -269,8 +269,33 @@ def test_end_then_finish_removes_state_but_keeps_reports(git_repo):
     assert (git_repo / state["report"]).is_file()
 
 
+def test_only_user_or_deadline_ends_a_stop_time_or_hours_shift(git_repo):
+    shift.start(git_repo, "a", "stop", start_time=T0)
+    with pytest.raises(shift.ShiftError, match="when the user says stop.*shift.py pause"):
+        shift.end(git_repo)
+    assert shift.pause(git_repo)["status"] == "paused"
+    with pytest.raises(shift.ShiftError, match="paused, not active"):
+        shift.pause(git_repo)
+    state = shift.load(git_repo)
+    state["end"] = {"kind": "hours", "at": (shift.now() + dt.timedelta(hours=1)).isoformat()}
+    shift.save(git_repo, state)
+    with pytest.raises(shift.ShiftError, match="at 20"):
+        shift.end(git_repo)
+    state["end"]["at"] = (shift.now() - dt.timedelta(minutes=1)).isoformat()
+    shift.save(git_repo, state)
+    assert shift.end(git_repo)["status"] == "ending"
+
+
+def test_cli_end_refused_for_hours_shift(git_repo):
+    assert run_cli(git_repo, "start", "--label", "x", "--end", "hours", "--hours", "2").returncode == 0
+    r = run_cli(git_repo, "end")
+    assert r.returncode == 1 and "shift.py pause" in r.stderr
+    r = run_cli(git_repo, "pause")
+    assert r.returncode == 0 and json.loads(r.stdout)["status"] == "paused"
+
+
 def test_commands_without_shift_fail(git_repo):
-    for fn in (shift.end, shift.finish, shift.status):
+    for fn in (shift.end, shift.pause, shift.finish, shift.status):
         with pytest.raises(shift.ShiftError, match="no active shift"):
             fn(git_repo)
 
@@ -361,7 +386,7 @@ def test_version_1_state_still_loads_for_status_end_finish(git_repo):
     d.mkdir(parents=True)
     (d / "state.json").write_text(json.dumps({
         "version": 1, "label": "old", "branch": "sleepless/2026-09-25", "base": "main",
-        "started": T0.isoformat(), "end": {"kind": "stop", "at": None}, "sources": [],
+        "started": T0.isoformat(), "end": {"kind": "list", "at": None}, "sources": [],
         "status": "active", "idle": {"fingerprint": "", "streak": 0}, "last_stop": None,
         "session_id": None}), encoding="utf-8")
     assert shift.status(git_repo)["report"] is None
@@ -371,8 +396,7 @@ def test_version_1_state_still_loads_for_status_end_finish(git_repo):
 
 
 def test_cli_round_trip(git_repo):
-    r = run_cli(git_repo, "start", "--label", "x", "--end", "hours", "--hours", "2",
-                "--sources", "todo,propose")
+    r = run_cli(git_repo, "start", "--label", "x", "--end", "list", "--sources", "todo,propose")
     assert r.returncode == 0, r.stderr
     assert json.loads(r.stdout)["sources"] == ["todo", "propose"]
     s = json.loads(run_cli(git_repo, "status").stdout)
@@ -391,7 +415,7 @@ def test_cli_outside_git_repo(tmp_path):
 
 
 def test_start_records_merge_mode(git_repo):
-    assert shift.start(git_repo, "a", "stop", start_time=T0)["merge"] is False
+    assert shift.start(git_repo, "a", "list", start_time=T0)["merge"] is False
     shift.end(git_repo)
     shift.finish(git_repo)
     r = run_cli(git_repo, "start", "--label", "b", "--end", "stop", "--merge")
