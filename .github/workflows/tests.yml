@@ -17,7 +17,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # ubuntu-24.04: newer Ubuntu images have no Python 3.9 for setup-python.
+        os: [ubuntu-24.04, windows-latest]
         python: ['3.9', '3.14']
     runs-on: ${{ matrix.os }}
     steps:
