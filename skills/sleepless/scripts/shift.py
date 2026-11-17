@@ -7,7 +7,7 @@ Standard library only, Python 3.9. The hooks import this module; Claude runs it 
     python3 shift.py join <branch> [--from <ref>]
     python3 shift.py done <branch> --status done|blocked [--pr URL] [--note TEXT]
     python3 shift.py wait [--timeout-minutes 50]
-    python3 shift.py workers | status | end | finish
+    python3 shift.py workers | status | end | pause | finish
 """
 from __future__ import annotations
 
@@ -381,7 +381,21 @@ def wait(root, timeout_minutes: float = 50) -> dict:
 
 def end(root) -> dict:
     state = _require(root)
+    kind = state["end"]["kind"]
+    at = state["end"].get("at")
+    if kind != "list" and not deadline_passed(state):
+        raise ShiftError("this shift ends %s, not by the agent; with no work left run "
+                         "`shift.py pause`" % _end_text(kind, at and dt.datetime.fromisoformat(at)))
     state["status"] = "ending"
+    save(root, state)
+    return state
+
+
+def pause(root) -> dict:
+    state = _require(root)
+    if state["status"] != "active":
+        raise ShiftError("the shift is %s, not active" % state["status"])
+    state["status"] = "paused"
     save(root, state)
     return state
 
@@ -458,7 +472,7 @@ def main(argv=None) -> int:
     p.add_argument("--pr")
     p.add_argument("--note")
     sub.add_parser("wait").add_argument("--timeout-minutes", type=float, default=50)
-    for name in ("workers", "status", "end", "finish"):
+    for name in ("workers", "status", "end", "pause", "finish"):
         sub.add_parser(name)
     args = parser.parse_args(argv)
 
@@ -491,6 +505,8 @@ def main(argv=None) -> int:
         elif args.cmd == "end":
             print(wrap_up(end(root)))
             return 0
+        elif args.cmd == "pause":
+            out = pause(root)
         else:
             finish(root)
             out = {"finished": True}

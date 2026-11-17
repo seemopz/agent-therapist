@@ -93,8 +93,12 @@ Talk to the user in their language. Everything written to files, commits and PRs
 
 End condition "when the list is done": after row 1 and all workers are finished, run
 `python3 "${CLAUDE_SKILL_DIR}/scripts/shift.py" end` and follow the wrap-up it prints. Every other
-end condition: quality work runs until the shift ends. When no quality work with a clear gain is
-left, write that under Findings and run `$SHIFT end` – never invent churn to fill the time.
+end condition: the agent never ends the shift – only "stop" in chat or the deadline does, and
+`$SHIFT end` refuses. Quality work runs until then. Nothing left with a clear gain: go through the
+sources again (open items in `TODO.md` and the repo's docs, test runs the prompt asked for, items
+you parked as "needs the user" – decide them yourself as in **Decisions and blockers**). Still
+nothing: write that under Findings and follow **Pause** with `$SHIFT pause` – never invent churn to
+fill the time.
 
 ## Keep changes lean
 
@@ -194,7 +198,7 @@ something else. Never work around the guard.
   Features only from real sources – `TODO.md`, open issues, or "later"/"follow-up"/"next" lists in
   the repo's docs and specs – small, one per PR, with the source named in the PR body. Never invent
   product features. Never build a new project; an empty repo without code or tests means: run
-  `$SHIFT end`.
+  `$SHIFT pause` (or `$SHIFT end` when the end condition is "list done").
 - Other sessions in the main checkout are left alone by the hooks.
 
 ## Push notifications
@@ -205,13 +209,15 @@ of data loss). The user is asleep.
 
 ## Pause
 
-When the Stop hook says the shift pauses (no repo change across several stop attempts): push any
-unpushed task branch, `PushNotification` with the reason, end the turn. The shift stays open
+When the Stop hook says the shift pauses (no repo change across several stop attempts), or you ran
+`$SHIFT pause` because no work is left: push any unpushed task branch, `PushNotification` with the
+reason, end the turn. The shift stays open
 (paused); the user resumes it with "weiter" or "resume shift".
 
 ## End
 
-On the wrap-up instruction (from "stop" in chat, a passed deadline, or `$SHIFT end`):
+On the wrap-up instruction (from "stop" in chat, a passed deadline, or `$SHIFT end` in a "list
+done" shift). Nothing else ends a shift:
 
 1. Running workers: let them finish (`$SHIFT wait` in the background) unless the deadline passed;
    otherwise park them – check their branches, stop their sessions (desktop: stop the session;
@@ -238,6 +244,7 @@ workers → `$SHIFT wait` in the background and end the turn; otherwise continue
 | Thought | Reality |
 |---|---|
 | "The list is done." | Quality work starts now (unless the end condition is "list done"). |
+| "Nothing left with a clear gain, I'll end the shift." | Only the user or the deadline ends it. Sources again, then `$SHIFT pause`. |
 | "The next step needs the user." | Decide, note it with the reason, build. |
 | "Good stopping point, I'll summarise." | The summary is the report. The turn goes on. |
 | "The context is very long." | Compaction handles it; the report is the memory. |
