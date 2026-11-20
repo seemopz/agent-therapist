@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.4.0](https://github.com/seemopz/agent-therapist/compare/v0.3.0...v0.4.0) (2026-11-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **sleepless:** no `sleepless/<date>` branch and no `SLEEPLESS-REPORT.md` in the repo root anymore; the shift ends with one PR per task.
+
+### Features
+
+* **agent-therapist:** carry the session's mode into subagent briefs ([#8](https://github.com/seemopz/agent-therapist/issues/8)) ([258b153](https://github.com/seemopz/agent-therapist/commit/258b153da7d7a1755a1e940898d466dddd765e96))
+* **agent-therapist:** start new sessions directly when handing off ([18b9214](https://github.com/seemopz/agent-therapist/commit/18b921406246a92306380867e27b1e265900da51))
+* run sleepless tasks and session hand-offs as real sessions ([3f02402](https://github.com/seemopz/agent-therapist/commit/3f024023b422972fa2cfaf8f83b5c8708a6a4a43))
+* **sleepless:** opt-in merge mode and lean, clean shifts ([#5](https://github.com/seemopz/agent-therapist/issues/5)) ([60ea85c](https://github.com/seemopz/agent-therapist/commit/60ea85c7659fed7eae7a4d859205b7a7cf751d8e))
+* **sleepless:** run each task in its own session, branch and PR ([28f08e9](https://github.com/seemopz/agent-therapist/commit/28f08e93a72f275fdab2fd3a5940231c7b6c5f76))
+
+
+### Bug Fixes
+
+* **ci:** run the Linux tests on ubuntu-24.04, which still has Python 3.9 ([#7](https://github.com/seemopz/agent-therapist/issues/7)) ([2b1a91d](https://github.com/seemopz/agent-therapist/commit/2b1a91d45f1bc1134535c7e0136adaea0e28b5e0))
+* **sleepless:** only the user or the deadline ends a stop, time or hours shift ([#6](https://github.com/seemopz/agent-therapist/issues/6)) ([e07779f](https://github.com/seemopz/agent-therapist/commit/e07779fdabac22a9ea96913f443a21e94c2f5d33))
+* **tests:** pass a POSIX path in the worker delete guard test ([a012580](https://github.com/seemopz/agent-therapist/commit/a0125808b63790bb0d2e638e523b929ad467ea8a))
+
 ## [0.3.0](https://github.com/seemopz/agent-therapist/compare/v0.2.0...v0.3.0) (2026-11-06)
 
 
