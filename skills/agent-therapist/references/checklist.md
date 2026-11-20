@@ -92,6 +92,15 @@ prompt, propose the "start it" rule text from `references/questions.md` → Bloc
 Claude can now start the new session itself (desktop app: session tool; CLI: `claude --bg`), so the
 user no longer copies the prompt. Keep the paste prompt as the fallback.
 
+## Check 10 – Modes in subagent briefs
+<!-- check: subagent-modes/1 -->
+
+Only if the user works in a mode (a plugin with levels such as ponytail, or an output style) and the
+files or rules dispatch subagents. Subagents don't inherit the session's mode or output style, so
+without a line in their briefs they work without it. If no rule says so, propose the rule text from
+`references/questions.md` → Block 0, question 3. If the main session's level was changed in the
+plugin's global config instead of a CLAUDE.md line, propose moving it to CLAUDE.md.
+
 If `scan.py` finds little and the file already meets the `guide.md` checklist, keep the whole preview
 short (roughly 5 findings or fewer): report the genuine ones, then say so explicitly ("looks good,
 only this:") instead of adding marginal wording nitpicks to fill the preview.

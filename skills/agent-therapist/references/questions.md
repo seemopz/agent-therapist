@@ -57,6 +57,18 @@ Rule text for answer 2 "start it" (write it in English, adapt to answer 1):
   - Otherwise: the brief as a ready-to-paste blockquote.
 ```
 
+Rule text for answer 3, only if the user also works in a mode – a plugin with levels (e.g. ponytail,
+`/ponytail lite|full|ultra`) or an output style, found in `settings.json` (`enabledPlugins`,
+`outputStyle`) or in a CLAUDE.md line. Subagents don't inherit the session's mode or output style:
+
+```markdown
+- Subagents don't inherit this session's mode or output style. Implementer and fix subagent briefs say: "Load the skill ponytail:ponytail at level full and follow it." Reviewers don't need it.
+```
+
+Fill in the user's skill and level. If the main session should run at another level than the
+plugin default (e.g. ponytail ultra, which questions the request before building), that is a
+CLAUDE.md line ("Use ponytail at level ultra."), not a change to the plugin's global default.
+
 ## Block 1 – How you work → `<global>/CLAUDE.md`
 
 4. **Answer language** (auto from the conversation): the language of this chat (Recommended) / other

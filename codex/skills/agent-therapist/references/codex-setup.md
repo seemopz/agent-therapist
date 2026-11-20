@@ -33,7 +33,7 @@ New setup is a guided interview, not a quick rewrite of detected files. For Glob
 | G1 | Language of answers, code, commits and documentation | Confirm existing language rules; otherwise chat language for answers and English for authored files. |
 | G2 | Answer length and explanation level | Brief, result first; confirm whether explanations should assume beginner, intermediate or professional experience. |
 | G3 | Long chats and handoffs | Ask when to recommend a fresh chat: after substantial phases in long chats and substantial topic changes (recommended), topic changes only, or on request. Confirm whether to include a copyable handoff. Use the concrete guidance below for the selected policy; do not claim automatic context management. |
-| G4 | Delegation | Ask whether independent subagents may be used autonomously, only on request, or after asking; only where supported. |
+| G4 | Delegation | Ask whether independent subagents may be used autonomously, only on request, or after asking; only where supported. If the user works in a skill-defined mode or level, recommend that subagent briefs name that skill and level; do not assume subagents inherit it. |
 | G5 | Routine autonomy | Decide separately for edits, suitable checks and local commits within a requested task. |
 | G6 | Actions requiring an explicit request | Confirm boundaries for push, publish, deploy, deletion and work outside the requested repository; do not treat a setup answer as immediate permission. |
 | G7 | External documentation | Ask when current official documentation should be checked; retain mandatory accuracy requirements of the environment. |

@@ -256,3 +256,12 @@ def test_skill_offers_update_and_stamps_after_saving():
     assert "scripts/stamp.py diff" in text
     assert "scripts/stamp.py save" in text
     assert "**Update:**" in text
+
+
+def test_subagent_briefs_carry_the_session_mode():
+    c = (REF / "checklist.md").read_text(encoding="utf-8")
+    assert "## Check 10 – Modes in subagent briefs" in c and "<!-- check: subagent-modes/1 -->" in c
+    q = (REF / "questions.md").read_text(encoding="utf-8")
+    assert "Subagents don't inherit this session's mode or output style." in q
+    assert "not a change to the plugin's global default" in q
+    assert "run checks 1–10" in SKILL_MD.read_text(encoding="utf-8")

@@ -30,3 +30,8 @@ def test_codex_sleepless_report_stays_out_of_git():
                    "own pull request", "never merge"):
         assert needle in text, needle
     assert "SLEEPLESS-REPORT.md" not in text
+
+
+def test_codex_delegation_names_the_session_mode():
+    text = (ROOT / "codex" / "skills" / "agent-therapist" / "references" / "codex-setup.md").read_text(encoding="utf-8")
+    assert "do not assume subagents inherit it" in text
