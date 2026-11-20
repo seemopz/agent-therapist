@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/seemopz/agent-therapist/compare/v0.4.0...v0.5.0) (2026-11-20)
+
+
+### Features
+
+* **agent-therapist:** flag instruction patterns that hurt Fable 5 ([#9](https://github.com/seemopz/agent-therapist/issues/9)) ([b91f307](https://github.com/seemopz/agent-therapist/commit/b91f3079a05910ac593c1f168820de129c35f9fd))
+
 ## [0.4.0](https://github.com/seemopz/agent-therapist/compare/v0.3.0...v0.4.0) (2026-11-20)
 
 
