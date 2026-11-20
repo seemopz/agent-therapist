@@ -1,7 +1,7 @@
 # CLAUDE.md – awesome guide
 
 Compact reference: what goes where, how to write it, how to maintain it.
-As of 24 September 2026, based on the Claude Code docs and our own measurements.
+As of 20 November 2026, based on the Claude Code docs and our own measurements.
 
 ---
 
@@ -107,6 +107,9 @@ As of 24 September 2026, based on the Claude Code docs and our own measurements.
 - **Positive:** say what to do, not only what not to
 - **Emphasis:** at most one line with `IMPORTANT` · no CAPS shouting, no "MUST" everywhere
 - **No magic words:** no role prompts ("You are an expert …"), no "double-check" (modern models already check themselves)
+- **Brief steering:** one short rule beats a list of unwanted behaviours; step-by-step prompts written for older models often lower the output quality of newer ones (Fable 5) → cut them
+- **No reasoning echo:** no "show / explain your thinking" lines → on Fable 5 they can trigger a `reasoning_extraction` refusal
+- **No context countdowns:** no token budgets or "context is running out" warnings → the model hands off or stops early
 - **Links instead of content:** "Details on X: `docs/x.md`", so Claude only reads it when needed
 
 ---
@@ -125,6 +128,7 @@ As of 24 September 2026, based on the Claude Code docs and our own measurements.
 - **Tools:**
   - `/context` → what's loaded
   - `/doctor` → suggests cuts
+  - `/doctor prompt-audit` → flags lines written for older models, contradictions, missing files or commands; changes nothing until you approve
   - `/init` → starter scaffold, then cut it down hard
 - treat it like code: version it, review it, clean it up regularly
 
@@ -181,6 +185,7 @@ One-liner: what it is.
 - [ ] must-rules as a hook, not as text
 - [ ] workflows and long knowledge in skills or `docs/`
 - [ ] at most one `IMPORTANT` line
+- [ ] no step-by-step prompts from older models, no "show your thinking", no context countdowns
 - [ ] an `AGENTS.md` actually loads (no CLAUDE file blocking it without `@AGENTS.md`)
 
 ---
@@ -190,5 +195,6 @@ One-liner: what it is.
 - [Claude Code Docs: How Claude remembers your project](https://code.claude.com/docs/en/memory)
 - [Claude Code Docs: Best practices](https://code.claude.com/docs/en/best-practices)
 - [Claude Docs: Prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)
+- [Claude Docs: Prompting Claude Fable 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5)
 - [HumanLayer: Writing a good CLAUDE.md](https://www.humanlayer.dev/blog/writing-a-good-claude-md)
 - [alexop.dev: Stop Bloating Your CLAUDE.md](https://alexop.dev/posts/stop-bloating-your-claude-md-progressive-disclosure-ai-coding-tools/)

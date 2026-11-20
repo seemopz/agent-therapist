@@ -65,13 +65,15 @@ the preview, or any new file. Propose: remove the line; store the secret in a pa
 (not committed); if the file is in git history, tell the user the secret should be rotated.
 
 ## Check 7 – Checklist from `guide.md`
-<!-- check: guide/2 -->
+<!-- check: guide/3 -->
 
 Go through `references/guide.md` → "Checklist": global under 30 lines · repo under 200, better under 60 ·
 every line passes "Would Claude make mistakes without this line?" · no contradictions · commands exist
 and run · must-rules as hooks · workflows and long knowledge in `docs/` · at most one `IMPORTANT` line
 (scan.py `check=important`). Also flag: role prompts ("You are an expert…"), "double-check",
-CAPS shouting, generic advice ("write clean code").
+CAPS shouting, generic advice ("write clean code"), step-by-step micromanagement written for older models,
+lines asking Claude to show or explain its thinking (a refusal risk on Fable 5), and token budgets or
+"context is running out" warnings. Reasons: `references/guide.md` → "Writing".
 
 ## Check 8 – AGENTS.md
 <!-- check: agents/2 -->
