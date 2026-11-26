@@ -4,7 +4,7 @@
 
 Resolve the Codex home from `CODEX_HOME`, otherwise the user's `.codex` directory, using the active shell's syntax. Inspect only files needed for the selected scope; never dump credentials or unrelated session history.
 
-Trace instructions from the global directory and project root to the working directory. Per directory, the first nonempty candidate wins: `AGENTS.override.md`, `AGENTS.md`, then configured fallback names. Nested guidance takes precedence. Check for hidden overrides and configured byte limits (default 32 KiB). Plain links and Claude's `@file` syntax do not establish that another file was automatically loaded. Report actual sources and uncertain loading separately.
+Trace instructions from the global directory and project root to the working directory. Per directory, the first nonempty candidate wins: `AGENTS.override.md`, then `AGENTS.md`; in project directories configured fallback names (`project_doc_fallback_filenames`) follow. Nested guidance takes precedence. Check for hidden overrides and configured byte limits (default 32 KiB). Plain links and Claude's `@file` syntax do not establish that another file was automatically loaded. Report actual sources and uncertain loading separately.
 
 Inspect user `config.toml` and project `.codex/config.toml` layers. CLI overrides take precedence; project layers require trust. Profiles and managed requirements can affect the result. Do not infer effective settings from one file or weaken managed restrictions. Record the surface (desktop, CLI, or IDE), OS and shell: commands and supported features must fit that environment.
 
