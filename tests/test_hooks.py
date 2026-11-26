@@ -165,7 +165,8 @@ def test_done_check_missing_test_command(tmp_path):
     assert r.returncode == 2
     assert "definitely-not-a-command-xyz" in r.stderr
     assert "Test command not runnable" in r.stderr
-    assert run(s, {"stop_hook_active": True, "cwd": str(tmp_path)}, tmp_path).returncode == 2
+    again = run(s, {"stop_hook_active": True, "cwd": str(tmp_path)}, tmp_path)
+    assert again.returncode == 0 and "Test command not runnable" in again.stderr
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX shell glob expansion")
