@@ -43,7 +43,8 @@ if stamp is not None:
         pass
 
 r = subprocess.run(TEST_CMD, shell=True, cwd=root, capture_output=True, text=True, errors="replace")
-if r.returncode in (9009, 126, 127):
+# cmd.exe exits 1 for an unknown command; shortcut: matches English Windows only, add other locales if needed
+if r.returncode in (9009, 126, 127) or "is not recognized as an internal or external command" in r.stderr:
     print(f"Test command not runnable ({TEST_CMD}): {r.stderr.strip()}. "
           f"Fix TEST_CMD in .claude/hooks/done-check.py.", file=sys.stderr)
     sys.exit(2)
