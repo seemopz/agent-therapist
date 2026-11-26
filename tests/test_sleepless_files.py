@@ -9,6 +9,8 @@ SKILL_HOOKS = SLEEPLESS_DIR / "hooks" / "hooks.json"
 ROOT_HOOKS = ROOT / "hooks" / "hooks.json"
 EVENTS = {"Stop": "stop", "UserPromptSubmit": "prompt", "SessionStart": "session-start",
           "StopFailure": "stop-failure", "PreToolUse": "pre-tool-use"}
+# python3 is a Microsoft Store stub on some Windows machines; fall back to python there.
+PYTHON = "p=$(command -v python3); case $p in ''|*WindowsApps*) p=python;; esac; \"$p\" "
 SCRIPTS = [SLEEPLESS_DIR / "scripts" / "shift.py", SLEEPLESS_DIR / "hooks" / "hook.py",
            SLEEPLESS_DIR / "hooks" / "guard.py"]
 
@@ -20,12 +22,12 @@ def test_skill_hooks_cover_every_event_and_call_hook_py():
         [group] = hooks[event]
         [handler] = group["hooks"]
         assert handler["type"] == "command"
-        assert handler["command"] == 'python3 "${CLAUDE_PLUGIN_ROOT}/hooks/hook.py" ' + arg
+        assert handler["command"] == PYTHON + '"${CLAUDE_PLUGIN_ROOT}/hooks/hook.py" ' + arg
     assert hooks["SessionStart"][0]["matcher"] == "startup|resume|compact"
     assert hooks["SessionStart"][0]["hooks"][0]["asyncRewake"] is True
     assert hooks["StopFailure"][0]["hooks"][0]["asyncRewake"] is True
     assert hooks["StopFailure"][0]["hooks"][0]["timeout"] >= 1000
-    assert hooks["StopFailure"][0]["matcher"] == "rate_limit|overloaded|server_error"
+    assert hooks["StopFailure"][0]["matcher"] == "rate_limit|server_error"
     assert hooks["PreToolUse"][0]["matcher"] == "Bash|mcp__.*"
 
 
