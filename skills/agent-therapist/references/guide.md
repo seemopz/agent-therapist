@@ -24,7 +24,7 @@ As of 24 September 2026, based on the Claude Code docs and our own measurements.
 | `./CLAUDE.local.md` | repo, me only | always | no |
 | `./AGENTS.md` / `./.claude/AGENTS.md` | repo, all coding agents | always, **only if** no `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` in the working dir or above (default) | yes |
 | `./.claude/rules/*.md` + `paths:` | specific files | when matching files are opened | yes |
-| `subfolder/CLAUDE.md` | sub-area | when Claude reads there | yes |
+| `subfolder/CLAUDE.md` | sub-area | when Claude reads, writes or edits a file there | yes |
 | `subfolder/AGENTS.md` | sub-area | when Claude reads there and the folder has no CLAUDE file | yes |
 | `.claude/skills/<name>/SKILL.md` | on demand | when invoked | yes |
 
@@ -35,8 +35,8 @@ As of 24 September 2026, based on the Claude Code docs and our own measurements.
 
 ### AGENTS.md
 
-- Claude Code reads `AGENTS.md` natively – no hook, no setting needed
-- `~/.claude/CLAUDE.md` and `rules/` do **not** block it; `CLAUDE.local.md` does
+- Claude Code v2.1.277+ reads `AGENTS.md` natively – no hook, no setting needed; older versions read `CLAUDE.md` only
+- a `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` in the working dir or above blocks it; `~/.claude/CLAUDE.md` and `rules/` do **not**
 - `/config` → **Project instructions** (user settings: `pluginConfigs."cc-plugin-agents-md@builtin".options.instructionFiles`; the legacy `agents-md@builtin` ID also works):
   `claude-md-or-agents-md` (default) · `claude-md-and-agents-md` · `claude-md` · `managed-only`
 - repo with both files → `CLAUDE.md` starts with `@AGENTS.md`, below it only Claude-specific lines

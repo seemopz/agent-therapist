@@ -39,8 +39,8 @@ sys.exit(0)
 ```
 
 ```json
-{"hooks": {"PreToolUse": [{"matcher": "Edit|Write|MultiEdit", "hooks": [
-  {"type": "command", "command": "[ ! -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-files.py\" ] || python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-files.py\""}]}]}}
+{"hooks": {"PreToolUse": [{"matcher": "Edit|Write", "hooks": [
+  {"type": "command", "command": "[ ! -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-files.py\" ] || { p=$(command -v python3); case $p in ''|*WindowsApps*) p=python;; esac; \"$p\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-files.py\"; }"}]}]}}
 ```
 
 The `[ ! -f … ] ||` guard means a missing script is silently skipped instead of blocking every tool call
@@ -105,7 +105,7 @@ sys.exit(0)
 
 ```json
 {"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [
-  {"type": "command", "command": "[ ! -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/no-commit-on-main.py\" ] || python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/no-commit-on-main.py\""}]}]}}
+  {"type": "command", "command": "[ ! -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/no-commit-on-main.py\" ] || { p=$(command -v python3); case $p in ''|*WindowsApps*) p=python;; esac; \"$p\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/no-commit-on-main.py\"; }"}]}]}}
 ```
 
 Global install: same substitution as above (`$HOME/.claude/hooks` or the resolved global dir) in both
@@ -139,8 +139,8 @@ sys.exit(0)
 ```
 
 ```json
-{"hooks": {"PostToolUse": [{"matcher": "Edit|Write|MultiEdit", "hooks": [
-  {"type": "command", "command": "[ ! -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/format-after-edit.py\" ] || python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/format-after-edit.py\""}]}]}}
+{"hooks": {"PostToolUse": [{"matcher": "Edit|Write", "hooks": [
+  {"type": "command", "command": "[ ! -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/format-after-edit.py\" ] || { p=$(command -v python3); case $p in ''|*WindowsApps*) p=python;; esac; \"$p\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/format-after-edit.py\"; }"}]}]}}
 ```
 
 Global install: same substitution as above (`$HOME/.claude/hooks` or the resolved global dir) in both
@@ -221,7 +221,7 @@ sys.exit(0)
 
 ```json
 {"hooks": {"Stop": [{"hooks": [
-  {"type": "command", "command": "[ ! -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/done-check.py\" ] || python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/done-check.py\"", "timeout": 300}]}]}}
+  {"type": "command", "command": "[ ! -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/done-check.py\" ] || { p=$(command -v python3); case $p in ''|*WindowsApps*) p=python;; esac; \"$p\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/done-check.py\"; }", "timeout": 300}]}]}}
 ```
 
 `done-check` is project-only – it runs a project's test command via `$CLAUDE_PROJECT_DIR`, so there is
