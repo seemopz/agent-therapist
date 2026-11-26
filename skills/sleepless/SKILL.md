@@ -205,7 +205,8 @@ something else. Never work around the guard.
 
 Send `PushNotification` (load it with ToolSearch if it is deferred) only for: the idle pause, the
 end of the shift (summary and PR links), and important findings (security issue, broken main, risk
-of data loss). The user is asleep.
+of data loss). The user is asleep. From a local session it is only a desktop notification; it
+reaches the phone only with Remote Control on or in a cloud session, so say this when the shift starts.
 
 ## Pause
 

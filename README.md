@@ -43,7 +43,7 @@ Resume an interrupted session using its report in `.sleepless/reports/`. The rem
 
 ### Claude Code
 
-Requirements: Claude Code, `python3` (3.9 or newer, standard library only), `git`.
+Requirements: Claude Code, `python3` (3.9 or newer, standard library only; hooks fall back to `python` where `python3` is missing or the Windows Store stub), `git`.
 `gh` is optional for agent-therapist (used read-only to detect branch protection and pull requests)
 and required with write access for sleepless (it opens one pull request per task).
 
@@ -168,7 +168,7 @@ Hooks do the parts that must not depend on Claude:
 | Stop | keeps the turn going (lets it end while `shift.py wait` runs in the background for workers); pauses when more than 6 stop attempts in a row bring no repo change (`SLEEPLESS_IDLE_LIMIT`, clamped to 1-6) |
 | UserPromptSubmit | `stop` ends the shift, `weiter` or `resume shift` resumes a paused one |
 | SessionStart | wakes a restarted session and continues the shift |
-| StopFailure | tries to wake the shift 15 minutes after a rate limit, overload or server error (best effort: Claude Code documents StopFailure as notification-only; not verified in a real session) |
+| StopFailure | tries to wake the shift 15 minutes after a rate limit or server error (best effort: Claude Code documents StopFailure as notification-only; not verified in a real session) |
 | PreToolUse | blocks force push, push to main/master, deleting remote branches, merging, `git merge` into main/master, deleting outside the repo, sending messages – also in worker sessions; records worker heartbeats. In merge mode it allows exactly `gh pr merge <task branch> --squash` for branches the shift created (no `--admin`, `--auto`, `--delete-branch`, `-R`) |
 
 Without an active shift the hooks do nothing. In worker sessions only PreToolUse acts. State and

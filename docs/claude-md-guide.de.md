@@ -23,7 +23,7 @@ Stand September 2026, nach der Claude-Code-Doku und eigenen Messungen.
 | `./CLAUDE.md` / `./.claude/CLAUDE.md` | Repo, Team | immer | ja |
 | `./CLAUDE.local.md` | Repo, nur ich | immer | nein |
 | `./.claude/rules/*.md` + `paths:` | bestimmte Dateien | wenn passende Dateien geöffnet werden | ja |
-| `unterordner/CLAUDE.md` | Teilbereich | wenn Claude dort liest | ja |
+| `unterordner/CLAUDE.md` | Teilbereich | wenn Claude dort eine Datei liest, schreibt oder bearbeitet | ja |
 | `.claude/skills/<name>/SKILL.md` | bei Bedarf | wenn aufgerufen | ja |
 
 - alles wird **zusammengefügt**, nichts überschreibt

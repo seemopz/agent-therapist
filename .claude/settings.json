@@ -23,22 +23,22 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Edit|Write|MultiEdit",
+        "matcher": "Edit|Write",
         "hooks": [
-          {"type": "command", "command": "[ ! -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-files.py\" ] || python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-files.py\""}
+          {"type": "command", "command": "[ ! -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-files.py\" ] || { p=$(command -v python3); case $p in ''|*WindowsApps*) p=python;; esac; \"$p\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-files.py\"; }"}
         ]
       },
       {
         "matcher": "Bash",
         "hooks": [
-          {"type": "command", "command": "[ ! -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/no-commit-on-main.py\" ] || python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/no-commit-on-main.py\""}
+          {"type": "command", "command": "[ ! -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/no-commit-on-main.py\" ] || { p=$(command -v python3); case $p in ''|*WindowsApps*) p=python;; esac; \"$p\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/no-commit-on-main.py\"; }"}
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          {"type": "command", "command": "[ ! -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/done-check.py\" ] || python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/done-check.py\"", "timeout": 300}
+          {"type": "command", "command": "[ ! -f \"$CLAUDE_PROJECT_DIR/.claude/hooks/done-check.py\" ] || { p=$(command -v python3); case $p in ''|*WindowsApps*) p=python;; esac; \"$p\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/done-check.py\"; }", "timeout": 300}
         ]
       }
     ]
