@@ -103,13 +103,16 @@ part is built new and the project part is optimized.
 6. Passwords and secrets → reported masked, never copied
 7. The checklist from `references/guide.md` (e.g. at most one `IMPORTANT` line)
 8. `AGENTS.md`: not loaded because a CLAUDE.md blocks it, or outdated workarounds (hook, "read AGENTS.md")
+9. Session hand-off: suggesting a new session with a ready brief
+10. Modes in subagent briefs (e.g. a ponytail level), since subagents don't inherit them
+11. Status block after tasks: status, risk and git state, then what changed, what can go wrong, what you have to do
 
 ### Where things end up
 
 | Target | For |
 |---|---|
 | `~/.claude/CLAUDE.md` | how you work: language, style, machine, tools |
-| `~/.claude/rules/token.md`, `git.md` | token hygiene, git habits |
+| `~/.claude/rules/token.md`, `git.md`, `summary.md` | token hygiene, git habits, status block after tasks |
 | `<project>/CLAUDE.md` | commands, deviations from global, pitfalls, boundaries |
 | hook | rules that must never be broken (templates: protect files, no commits on main, format after edit, tests before "done") |
 | permission | commands that may run without asking, or never |
