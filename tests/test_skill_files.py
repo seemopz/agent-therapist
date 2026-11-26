@@ -264,4 +264,14 @@ def test_subagent_briefs_carry_the_session_mode():
     q = (REF / "questions.md").read_text(encoding="utf-8")
     assert "Subagents don't inherit this session's mode or output style." in q
     assert "not a change to the plugin's global default" in q
-    assert "run checks 1–10" in SKILL_MD.read_text(encoding="utf-8")
+    assert "run checks 1–11" in SKILL_MD.read_text(encoding="utf-8")
+
+
+def test_status_block_rule_and_check():
+    c = (REF / "checklist.md").read_text(encoding="utf-8")
+    assert "## Check 11 – Status block after tasks" in c and "<!-- check: status-block/1 -->" in c
+    q = (REF / "questions.md").read_text(encoding="utf-8")
+    for needle in ("rules/summary.md", "🔄 What changed?", "⚡ What can go wrong?", "🫵 What do you have to do?",
+                   "handover of 3–5 sentences", "✅ done only when the check ran"):
+        assert needle in q, needle
+    assert "`$G/rules/summary.md`" in SKILL_MD.read_text(encoding="utf-8")

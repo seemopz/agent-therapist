@@ -31,7 +31,7 @@ New setup is a guided interview, not a quick rewrite of detected files. For Glob
 | ID | Topic to ask or confirm | Recommended starting point |
 |---|---|---|
 | G1 | Language of answers, code, commits and documentation | Confirm existing language rules; otherwise chat language for answers and English for authored files. |
-| G2 | Answer length and explanation level | Brief, result first; confirm whether explanations should assume beginner, intermediate or professional experience. |
+| G2 | Answer length and explanation level | Brief, result first; confirm whether explanations should assume beginner, intermediate or professional experience. Also ask about a closing status block after tasks: three questions with a handover after long tasks (recommended), three questions always, or none; use the text under "Status block" below. |
 | G3 | Long chats and handoffs | Ask when to recommend a fresh chat: after substantial phases in long chats and substantial topic changes (recommended), topic changes only, or on request. Confirm whether to include a copyable handoff. Use the concrete guidance below for the selected policy; do not claim automatic context management. |
 | G4 | Delegation | Ask whether independent subagents may be used autonomously, only on request, or after asking; only where supported. If the user works in a skill-defined mode or level, recommend that subagent briefs name that skill and level; do not assume subagents inherit it. |
 | G5 | Routine autonomy | Decide separately for edits, suitable checks and local commits within a requested task. |
@@ -89,6 +89,20 @@ Suggested global instructions for the phase-based policy:
 ```
 
 These are user-selected working rules, not automatic enforcement. Do not add token-count thresholds, compaction claims or hooks to enforce them. A fresh-chat suggestion is not a reason to pause a task or request redundant authorization. A small fix and its checks belong together; a user explicitly saying "continue here" should be respected. Keep unverified tests, postponed acceptance and blockers visible in the handoff.
+
+### Status block
+
+Suggested global instruction for G2 (drop the handover line for "always"):
+
+```markdown
+- After a task that changed files or ran commands, end the answer with a status block below a `────` line. Not after plain questions. Write its labels in the answer language.
+  - First line: status (✅ done · ⚠️ open · 🛑 waiting for you · ❌ failed) · risk (✅ low · 🟡 medium · 🔴 high) · git: 🌿 branch · 💾 commits · ✏️ uncommitted · ☁️ pushed / 📤 not pushed · 🔀 PR and its CI. Leave out what doesn't apply.
+  - Then answer in one or two sentences each: 🔄 What changed? ⚡ What can go wrong? 🫵 What do you have to do?
+  - After a long task (many steps, a shift, the user away), write a handover of 3–5 sentences instead: what is done, what is open, and what will surprise the user and why.
+  - ✅ done only when the check ran; name what was not checked. Open questions come last, each starting with ❓.
+```
+
+During Optimize, offer it once as an optional suggestion when no such rule exists; keep an existing one as the user wrote it.
 
 ## Verify the result
 

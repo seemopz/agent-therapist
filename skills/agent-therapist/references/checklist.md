@@ -103,6 +103,13 @@ without a line in their briefs they work without it. If no rule says so, propose
 `references/questions.md` → Block 0, question 3. If the main session's level was changed in the
 plugin's global config instead of a CLAUDE.md line, propose moving it to CLAUDE.md.
 
+## Check 11 – Status block after tasks
+<!-- check: status-block/1 -->
+
+Global level only. If no rule asks for a closing status block after tasks, offer the rule text from
+`references/questions.md` → Block 1, question 6, as an optional finding; a "no" is final. Keep an
+existing status-block rule in whatever form the user chose.
+
 If `scan.py` finds little and the file already meets the `guide.md` checklist, keep the whole preview
 short (roughly 5 findings or fewer): report the genuine ones, then say so explicitly ("looks good,
 only this:") instead of adding marginal wording nitpicks to fill the preview.

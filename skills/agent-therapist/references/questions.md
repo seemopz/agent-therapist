@@ -73,7 +73,19 @@ CLAUDE.md line ("Use ponytail at level ultra."), not a change to the plugin's gl
 
 4. **Answer language** (auto from the conversation): the language of this chat (Recommended) / other
 5. **Language for code, commits, repo docs (not memory files – those are always English):** English (Recommended) / same as answers / per project
-6. **Answer length:** short, result first (Recommended) / medium / detailed
+6. **Answer length:** short, result first (Recommended) / medium / detailed. Then ask as a follow-up:
+   **Status block after each task:** three questions, handover after long tasks (Recommended – risk and
+   git state at a glance) / three questions always / none. Write the rule text below to
+   `<global>/rules/summary.md`; for "always", drop its handover line.
+
+```markdown
+- After a task that changed files or ran commands, end the answer with a status block below a `────` line. Not after plain questions. Write its labels in the answer language.
+  - First line: status (✅ done · ⚠️ open · 🛑 waiting for you · ❌ failed) · risk (✅ low · 🟡 medium · 🔴 high) · git: 🌿 branch · 💾 commits · ✏️ uncommitted · ☁️ pushed / 📤 not pushed · 🔀 PR and its CI. Leave out what doesn't apply.
+  - Then answer in one or two sentences each: 🔄 What changed? ⚡ What can go wrong? 🫵 What do you have to do?
+  - After a long task (many steps, a shift, the user away), write a handover of 3–5 sentences instead: what is done, what is open, and what will surprise the user and why.
+  - ✅ done only when the check ran; name what was not checked. Open questions come last, each starting with ❓.
+```
+
 7. **Expertise:** beginner / intermediate / professional – decides how much Claude explains. Recommended: the level the conversation and repos suggest – name the signal
 8. **Always ask before:** push · delete files · install dependencies · anything outside the repo (multi-select, all four preselected = Recommended)
 9. **Library docs:** look them up instead of answering from memory? yes (Recommended) / no

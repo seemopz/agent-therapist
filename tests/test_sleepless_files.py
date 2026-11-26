@@ -69,3 +69,8 @@ def test_report_template_placeholders():
     for heading in ("## Summary", "## Plan", "## Done", "## Decisions and questions", "## Blocked",
                     "## Findings", "## Next"):
         assert heading in text
+
+
+def test_sleepless_closes_with_a_handover_status_block():
+    text = (SLEEPLESS_DIR / "SKILL.md").read_text(encoding="utf-8")
+    assert "status block below a `────` line" in text and "handover of 3–5" in text

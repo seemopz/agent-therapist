@@ -231,7 +231,9 @@ done" shift). Nothing else ends a shift:
 4. `PushNotification` with the summary and the PR links.
 5. `python3 "${CLAUDE_SKILL_DIR}/scripts/shift.py" finish`. It keeps the reports and deletes the
    rest of `.claude/sleepless/`.
-6. Closing message: what was done, the PR links, open questions, the report path.
+6. Closing message: what was done, the PR links, open questions, the report path. End it with a
+   status block below a `────` line: status · risk · the PRs with their CI, then a handover of 3–5
+   sentences (what is done, what is open, what will surprise the user and why).
 
 ## After a restart
 

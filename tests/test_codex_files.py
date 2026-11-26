@@ -35,3 +35,11 @@ def test_codex_sleepless_report_stays_out_of_git():
 def test_codex_delegation_names_the_session_mode():
     text = (ROOT / "codex" / "skills" / "agent-therapist" / "references" / "codex-setup.md").read_text(encoding="utf-8")
     assert "do not assume subagents inherit it" in text
+
+
+def test_codex_status_block_matches_claude_rule():
+    codex = (ROOT / "codex" / "skills" / "agent-therapist" / "references" / "codex-setup.md").read_text(encoding="utf-8")
+    claude = (ROOT / "skills" / "agent-therapist" / "references" / "questions.md").read_text(encoding="utf-8")
+    rule = claude.split("- After a task that changed files")[1].split("```")[0]
+    assert rule in codex
+    assert "### Status block" in codex
