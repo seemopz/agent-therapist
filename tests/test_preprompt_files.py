@@ -24,7 +24,7 @@ def test_rules_skeleton_has_every_tag():
 def test_rules_cover_key_points_from_docs():
     text = RULES.read_text(encoding="utf-8")
     for needle in ("reason", "positive", "all-caps", "15 years", "3–5", "last",
-                   "explain its reasoning", "platform.claude.com"):
+                   "Keep reasoning out of the output", "platform.claude.com"):
         assert needle in text, needle
 
 

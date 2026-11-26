@@ -53,10 +53,15 @@ Write the prompt in the language of the user's idea. Tag names stay in English.
 4. **Role only with a purpose.** Add a role line ("You are a security reviewer …") only when it
    sets a real perspective or tone. Leave out seniority claims like "15 years of experience" –
    the docs give no evidence that they help.
-5. **Calm wording.** No all-caps, no "CRITICAL" or "MUST". Newer models follow instructions
-   closely and overreact to emphasis.
-6. **Do not ask Claude to explain its reasoning in the answer.** It can trigger a refusal. Leave
-   thinking depth to the model's effort setting instead of adding "think carefully" lines.
+5. **Calm wording, explicit limits.** No all-caps, no "CRITICAL" or "MUST". Current models take
+   instructions literally – "never" counts as absolute – so name the exception instead: "ask before
+   deleting files" rather than "never delete files".
+6. **Keep reasoning out of the output.** No `<thinking>`/`<reasoning>`/scratchpad sections, no
+   `reasoning`/`thinking`/`trace` fields in JSON or tool input, no reasoning "verbatim" or "in full",
+   no examples that show reasoning in tags – these can trigger a refusal. A short explanation of the
+   answer, the evidence behind it, or a summary of the steps is fine. To reduce thinking, lower the
+   effort setting; for more thinking at a fixed effort, "think the problem through before you
+   answer" helps.
 7. **Examples: 3–5, varied**, wrapped in `<example>` tags – only when style or format matters.
 8. **Long material first, task last.** Pasted documents or code go into `<context>`; the task
    comes after them.
@@ -78,11 +83,16 @@ Apply while writing – not as an extra pass:
 
 ## Sources
 
-Checked on 2026-09-25:
+Checked on 2026-11-26:
 
 - https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices
 - https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview
+- https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback
 - https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5
+- https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-1
+- https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-2
 - https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5
 - https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5
 - https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5
+- https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5-5
+- https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-haiku-5-5
